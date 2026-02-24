@@ -589,6 +589,67 @@ async def person_memories(person_id: str, user_id: str = Depends(get_current_use
     }
 
 
+@router.get("/conversation/{conversation_id}")
+async def get_conversation(conversation_id: str, user_id: str = Depends(get_current_user)):
+    """Get conversation history."""
+    redis = get_redis()
+    if not redis:
+        return {"messages": []}
+    
+    try:
+        cached = await redis.get(f"conversation:{conversation_id}")
+        if cached:
+            history = json.loads(cached)
+            return {"conversation_id": conversation_id, "messages": history}
+    except Exception:
+        pass
+    
+    return {"conversation_id": conversation_id, "messages": []}
+
+
+@router.delete("/conversation/{conversation_id}")
+async def clear_conversation(conversation_id: str, user_id: str = Depends(get_current_user)):
+    """Clear conversation history."""
+    redis = get_redis()
+    if redis:
+        try:
+            await redis.delete(f"conversation:{conversation_id}")
+        except Exception:
+            pass
+    
+    return {"cleared": True}
+
+
+@router.get("/conversations")
+async def list_conversations(user_id: str = Depends(get_current_user)):
+    """List user's recent conversations."""
+    redis = get_redis()
+    if not redis:
+        return {"conversations": []}
+    
+    try:
+        # Scan for user's conversations
+        pattern = f"conversation:conv_{user_id}_*"
+        conversations = []
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor, match=pattern, count=100)
+            for key in keys:
+                key_str = key.decode() if isinstance(key, bytes) else key
+                conv_id = key_str.replace("conversation:", "")
+                # Get first message as preview
+                data = await redis.get(key)
+                if data:
+                    msgs = json.loads(data)
+                    preview = msgs[0]["content"][:50] + "..." if msgs else ""
+                    conversations.append({"id": conv_id, "preview": preview, "count": len(msgs)})
+            if cursor == 0:
+                break
+        return {"conversations": conversations[:20]}
+    except Exception:
+        return {"conversations": []}
+
+
 @router.post("/albums/generate")
 async def generate_smart_album(
     album_type: str,

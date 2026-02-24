@@ -3044,9 +3044,15 @@ body > div#root > div.min-h-screen > footer,
     <div class="dp-panel-content" id="claw-content">
       <!-- OpenClaw Full View -->
       <div class="claw-full" id="claw-full-view" style="display: none;">
-        <div class="claw-header">
-          <h2><span class="ch-orb"><svg style="stroke:#080808" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg></span> OpenClaw</h2>
-          <div class="ch-sub">0711 Vault Edition · Running locally on your hardware</div>
+        <div class="claw-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h2><span class="ch-orb"><svg style="stroke:#080808" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg></span> OpenClaw</h2>
+            <div class="ch-sub">0711 Vault Edition · Running locally on your hardware</div>
+          </div>
+          <button onclick="clearChat()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px;margin-top:4px" onmouseenter="this.style.background='rgba(239,68,68,0.1)';this.style.color='#EF4444'" onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.color='#888'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"></path></svg>
+            Clear Chat
+          </button>
         </div>
         <div class="vault-context">
   <span class="vc-dot"></span>
@@ -3215,6 +3221,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     initUploadButtons();
     initCalendar();
     initSettings();
+    initSecureChat();
     loadVaultStats();
     loadRecentFiles();
     loadProcessingStatus();
@@ -3235,6 +3242,75 @@ document.getElementById('login-email').addEventListener('keydown', e => {
 // --- Moltbot Chat ---
 let moltConvId = null;
 let moltStreaming = false;
+
+// Load conversation from server
+async function loadConversation(convId) {
+  if (!convId) return;
+  try {
+    const resp = await fetch(API + '/assistant/conversation/' + convId, { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    // Render messages
+    const fullMsgs = document.querySelector('#claw-full-view .claw-messages');
+    const sumMsgs = document.querySelector('#claw-summary-view .claw-sum-messages');
+    
+    if (fullMsgs && data.messages) {
+      fullMsgs.innerHTML = '';
+      for (const msg of data.messages) {
+        const isUser = msg.role === 'user';
+        appendBubble(fullMsgs, escHtml(msg.content), isUser ? 'right' : 'left', 
+          isUser ? '#F5A623' : 'rgba(255,255,255,0.05)', 
+          isUser ? null : 'rgba(255,255,255,0.06)');
+        if (isUser) fullMsgs.lastChild.querySelector('span').style.color = '#080808';
+      }
+    }
+    if (sumMsgs && data.messages) {
+      sumMsgs.innerHTML = '';
+      for (const msg of data.messages) {
+        const isUser = msg.role === 'user';
+        appendBubble(sumMsgs, escHtml(msg.content), isUser ? 'right' : 'left',
+          isUser ? '#F5A623' : 'rgba(255,255,255,0.05)',
+          isUser ? null : 'rgba(255,255,255,0.06)');
+        if (isUser) sumMsgs.lastChild.querySelector('span').style.color = '#080808';
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load conversation:', e);
+  }
+}
+
+// Clear current conversation
+async function clearChat() {
+  if (!moltConvId) return;
+  if (!confirm('Clear chat history?')) return;
+  
+  try {
+    await fetch(API + '/assistant/conversation/' + moltConvId, {
+      method: 'DELETE',
+      headers: VaultAuth.headers()
+    });
+    
+    moltConvId = null;
+    localStorage.removeItem('moltConvId');
+    
+    // Clear UI
+    const fullMsgs = document.querySelector('#claw-full-view .claw-messages');
+    const sumMsgs = document.querySelector('#claw-summary-view .claw-sum-messages');
+    if (fullMsgs) fullMsgs.innerHTML = '';
+    if (sumMsgs) sumMsgs.innerHTML = '';
+    
+    showToast('Chat cleared', 'success');
+  } catch (e) {
+    console.error('Failed to clear chat:', e);
+    showToast('Failed to clear chat', 'error');
+  }
+}
+
+// Save conversation ID to localStorage
+function saveConvId() {
+  if (moltConvId) localStorage.setItem('moltConvId', moltConvId);
+}
 
 function appendBubble(container, html, align, bg, border) {
   const wrap = document.createElement('div');
@@ -3283,7 +3359,7 @@ async function sendChat(msg, msgContainer, input) {
       if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
       const data = await resp2.json();
       aiBubble.textContent = data.response || data.message || 'No response';
-      if (data.conversation_id) moltConvId = data.conversation_id;
+      if (data.conversation_id) { moltConvId = data.conversation_id; saveConvId(); }
       return;
     }
 
@@ -3302,7 +3378,7 @@ async function sendChat(msg, msgContainer, input) {
         try {
           const p = JSON.parse(line.slice(6));
           if (p.content) { accumulated += p.content; aiBubble.textContent = accumulated; msgContainer.scrollTop = msgContainer.scrollHeight; }
-          if (p.conversation_id) moltConvId = p.conversation_id;
+          if (p.conversation_id) { moltConvId = p.conversation_id; saveConvId(); }
           if (p.done) break;
           if (p.error) { aiBubble.textContent = p.error; break; }
         } catch (e) {}
@@ -3353,6 +3429,190 @@ function initMoltbot() {
     VaultAuth.clear();
     location.reload();
   });
+  
+  // Load saved conversation
+  const savedConvId = localStorage.getItem('moltConvId');
+  if (savedConvId) {
+    moltConvId = savedConvId;
+    loadConversation(savedConvId);
+  }
+}
+
+// --- Secure Chat ---
+let scCurrentConv = null;
+let scConversations = [];
+
+async function loadSecureConversations() {
+  try {
+    const resp = await fetch(API + '/chat/conversations', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    scConversations = data.conversations || [];
+    renderConversationList();
+  } catch (e) {
+    console.error('Failed to load conversations:', e);
+  }
+}
+
+function renderConversationList() {
+  const container = document.getElementById('sc-conv-list');
+  if (!container) return;
+  
+  if (scConversations.length === 0) {
+    container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:rgba(255,255,255,0.2);font-size:13px">No conversations yet<br><br><button onclick="showNewChatModal()" style="background:#F5A623;border:none;color:#080808;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">Start a Chat</button></div>';
+    return;
+  }
+  
+  container.innerHTML = scConversations.map(conv => `
+    <div class="sc-conv-item${scCurrentConv?.id === conv.id ? ' active' : ''}" onclick="selectConversation('${conv.id}')">
+      <div class="sc-avatar ${conv.is_group ? 'group' : 'human'}">${conv.name?.[0]?.toUpperCase() || '?'}</div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">${escHtml(conv.name || 'Chat')}</div>
+        <div class="sc-conv-preview">${escHtml(conv.last_message?.substring(0, 30) || 'No messages')}</div>
+      </div>
+      <div class="sc-conv-meta">
+        <div class="sc-conv-time">${conv.updated_at ? new Date(conv.updated_at).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'}) : ''}</div>
+        ${conv.unread_count ? '<div class="sc-unread">' + conv.unread_count + '</div>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function selectConversation(convId) {
+  scCurrentConv = scConversations.find(c => c.id === convId);
+  renderConversationList();
+  
+  // Update header
+  const header = document.querySelector('.sc-chat-header-info h4');
+  const subtext = document.querySelector('.sc-chat-header-info span');
+  if (header) header.textContent = scCurrentConv?.name || 'Chat';
+  if (subtext) subtext.textContent = scCurrentConv?.is_group ? `${scCurrentConv.participants?.length || 0} members` : 'End-to-end encrypted';
+  
+  // Load messages
+  await loadSecureMessages(convId);
+}
+
+async function loadSecureMessages(convId) {
+  try {
+    const resp = await fetch(API + '/chat/conversations/' + convId + '/messages', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    const container = document.getElementById('sc-messages');
+    if (!container) return;
+    
+    const messages = data.messages || [];
+    if (messages.length === 0) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.15);font-size:14px">No messages yet. Say hello! 👋</div>';
+      return;
+    }
+    
+    container.innerHTML = messages.map(msg => {
+      const isSent = msg.sender_id === localStorage.getItem('userId');
+      return `<div class="sc-msg ${isSent ? 'sent' : 'received'}">
+        <div class="sc-msg-avatar ${msg.sender_type || 'human'}">${msg.sender_name?.[0]?.toUpperCase() || '?'}</div>
+        <div class="sc-msg-bubble">
+          ${!isSent ? '<div class="sc-msg-sender">' + escHtml(msg.sender_name || 'Unknown') + '</div>' : ''}
+          <div>${escHtml(msg.content)}</div>
+          <div class="sc-msg-time">${new Date(msg.created_at).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}</div>
+        </div>
+      </div>`;
+    }).join('');
+    
+    container.scrollTop = container.scrollHeight;
+  } catch (e) {
+    console.error('Failed to load messages:', e);
+  }
+}
+
+async function sendSecureMessage() {
+  if (!scCurrentConv) {
+    showToast('Select a conversation first', 'info');
+    return;
+  }
+  
+  const input = document.getElementById('sc-msg-input');
+  const content = input.value.trim();
+  if (!content) return;
+  
+  input.value = '';
+  
+  try {
+    const resp = await fetch(API + '/chat/conversations/' + scCurrentConv.id + '/messages', {
+      method: 'POST',
+      headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, encrypted_content: content })
+    });
+    
+    if (!resp.ok) throw new Error('Send failed');
+    
+    await loadSecureMessages(scCurrentConv.id);
+  } catch (e) {
+    console.error('Failed to send message:', e);
+    showToast('Failed to send message', 'error');
+  }
+}
+
+function showNewChatModal() {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  
+  modal.innerHTML = `
+    <div style="background:#0a0a0a;border:1px solid rgba(245,166,35,0.2);border-radius:16px;width:90%;max-width:400px;padding:24px">
+      <h3 style="margin:0 0 16px;color:#fff;font-size:18px">New Conversation</h3>
+      <input id="new-chat-name" type="text" placeholder="Conversation name" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:12px;color:#fff;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px">
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="this.closest('div').parentElement.remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;padding:10px 20px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button onclick="createNewChat()" style="background:#F5A623;border:none;color:#080808;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600">Create</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('new-chat-name').focus();
+}
+
+async function createNewChat() {
+  const nameInput = document.getElementById('new-chat-name');
+  const name = nameInput?.value.trim() || 'New Chat';
+  
+  try {
+    const resp = await fetch(API + '/chat/conversations', {
+      method: 'POST',
+      headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, is_group: false, participants: [] })
+    });
+    
+    if (!resp.ok) throw new Error('Create failed');
+    
+    const data = await resp.json();
+    nameInput?.closest('div')?.parentElement?.remove();
+    
+    showToast('Conversation created', 'success');
+    await loadSecureConversations();
+    if (data.id) selectConversation(data.id);
+  } catch (e) {
+    console.error('Failed to create conversation:', e);
+    showToast('Failed to create conversation', 'error');
+  }
+}
+
+function initSecureChat() {
+  // Wire send button
+  const sendBtn = document.querySelector('.sc-send-btn');
+  const input = document.getElementById('sc-msg-input');
+  
+  if (sendBtn) sendBtn.onclick = sendSecureMessage;
+  if (input) input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendSecureMessage(); } };
+  
+  // Wire New Chat button
+  document.querySelectorAll('.sc-header-btn').forEach(btn => {
+    if (btn.title === 'New Chat') btn.onclick = showNewChatModal;
+    if (btn.title === 'New Group') btn.onclick = () => showToast('Groups coming soon!', 'info');
+  });
+  
+  // Load conversations
+  loadSecureConversations();
 }
 
 // --- Vault Stats ---
@@ -4127,6 +4387,7 @@ function initUploadButtons() {
         initUploadButtons();
         initCalendar();
         initSettings();
+        initSecureChat();
         loadVaultStats();
         loadRecentFiles();
         loadProcessingStatus();

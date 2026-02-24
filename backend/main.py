@@ -55,6 +55,7 @@ from routers.pipeline import router as pipeline_router
 from routers.mcp import router as mcp_router, init_mcp_router
 from routers.docs_routes import router as docs_router, init_docs_router
 from routers.settings import router as settings_router, init_settings
+from routers.chat import router as chat_router
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://vault:vault@localhost:5432/vault")
@@ -157,6 +158,7 @@ app.include_router(mcp_router)
 app.include_router(docs_router)
 app.include_router(versions_router)
 app.include_router(settings_router)
+app.include_router(chat_router, prefix="/chat", tags=["Secure Chat"])
 if IMESSAGE_AVAILABLE:
     app.include_router(imessage_router)
 
