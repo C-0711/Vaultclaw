@@ -2470,12 +2470,13 @@ body > div#root > div.min-h-screen > footer,
 
 <div class="vault-section-title"><svg style="stroke:#F5A623;width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg> AI Pipeline</div>
 <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
-  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Ingest ✓</span>
-  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Vision ✓</span>
-  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">OCR ✓</span>
-  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Embeddings ✓</span>
-  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Search ✓</span>
-  <span class="sv-badge hybrid" style="font-size:10px;padding:4px 10px">OpenClaw ✓</span>
+  <span id="badge-ingest" class="sv-badge local" style="font-size:10px;padding:4px 10px">Ingest ✓</span>
+  <span id="badge-vision" class="sv-badge local" style="font-size:10px;padding:4px 10px">Vision ✓</span>
+  <span id="badge-ocr" class="sv-badge local" style="font-size:10px;padding:4px 10px">OCR ✓</span>
+  <span id="badge-embeddings" class="sv-badge local" style="font-size:10px;padding:4px 10px">Embeddings ✓</span>
+  <span id="badge-search" class="sv-badge local" style="font-size:10px;padding:4px 10px">Search ✓</span>
+  <span id="badge-openclaw" class="sv-badge hybrid" style="font-size:10px;padding:4px 10px">OpenClaw ✓</span>
+  <span id="badge-pending" class="sv-badge" style="font-size:10px;padding:4px 10px;display:none;background:rgba(245,166,35,0.15);color:#F5A623">0 pending</span>
 </div>
 
 <div class="vault-storage">
@@ -3215,6 +3216,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     initCalendar();
     loadVaultStats();
     loadRecentFiles();
+    loadProcessingStatus();
   } catch (e) {
     errEl.textContent = 'Login failed — check your credentials.';
     errEl.style.display = 'block';
@@ -3707,6 +3709,28 @@ function showToast(message, type = 'info') {
   setTimeout(() => toast.remove(), 3000);
 }
 
+// --- Processing Status ---
+async function loadProcessingStatus() {
+  try {
+    const resp = await fetch(API + '/processing/status', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    const pendingBadge = document.getElementById('badge-pending');
+    if (pendingBadge) {
+      const pending = (data.pending || 0) + (data.processing || 0);
+      if (pending > 0) {
+        pendingBadge.style.display = '';
+        pendingBadge.textContent = pending + ' processing';
+      } else {
+        pendingBadge.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load processing status:', e);
+  }
+}
+
 // --- Calendar ---
 let calendarDate = new Date();
 
@@ -3813,6 +3837,7 @@ function initUploadButtons() {
         initCalendar();
         loadVaultStats();
         loadRecentFiles();
+        loadProcessingStatus();
         return;
       }
     } catch (e) {}
