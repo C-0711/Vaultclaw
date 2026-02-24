@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+venv/
+.venv/
+
+# Environment
+.env
+.anthropic_key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+frontend/dist/
+
+# Docker volumes
+postgres_data/
+redis_data/
+neo4j_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/
+
+# Backups
+*.backup
+*.bak
+*.working

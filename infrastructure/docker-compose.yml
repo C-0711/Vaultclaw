@@ -1,0 +1,122 @@
+# Vaultclaw — Local Development Stack
+# Usage: docker compose -f infrastructure/docker-compose.yml up --build
+# App: http://localhost:3000 | API: http://localhost:8000 | Neo4j: http://localhost:7474
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: vaultclaw-postgres
+    environment:
+      POSTGRES_DB: vaultclaw
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: vault
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d vaultclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: vaultclaw-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5
+    container_name: vaultclaw-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/vaultdev0711
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vault:vault@postgres:5432/vaultclaw
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: vaultdev0711
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_HOST: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      EMBEDDING_MODEL: bge-m3:latest
+      VISION_MODEL: llama4:latest
+      ENVIRONMENT: development
+    volumes:
+      - ../backend:/app
+      - vault_uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-worker
+    command: python worker.py
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vault:vault@postgres:5432/vaultclaw
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: vaultdev0711
+      OLLAMA_HOST: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENVIRONMENT: development
+    volumes:
+      - vault_uploads:/app/uploads
+    depends_on:
+      - api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  vault_uploads:

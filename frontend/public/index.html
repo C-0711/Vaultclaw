@@ -1,0 +1,3628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>0711 Vault × OpenClaw</title>
+<script>window.VAULTCLAW_API = '/api';</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #080808; 
+  color: #fff;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ===== dp-master-css ===== */
+
+/* === RESET: hide original UI === */
+body > div#root > div.min-h-screen > header,
+body > div#root > div.min-h-screen > .max-w-7xl,
+body > div#root > div.min-h-screen > footer,
+[class*="max-w-7xl"] { display:none !important; }
+
+/* === DUAL PANEL SYSTEM === */
+#dp-shell { position:fixed; inset:0; display:flex; flex-direction:column; background:#080808; font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; color:#e8e8e8; z-index:99999; overflow:hidden; }
+
+/* Top bar */
+#dp-topbar { height:48px; min-height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:rgba(15,15,15,0.95); border-bottom:1px solid rgba(245,166,35,0.12); backdrop-filter:blur(20px); z-index:10; }
+#dp-topbar .dp-logo { display:flex; align-items:center; gap:10px; }
+#dp-topbar .dp-logo-icon { width:28px; height:28px; background:#F5A623; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; color:#080808; }
+#dp-topbar .dp-logo-text { font-size:16px; font-weight:700; color:#fff; letter-spacing:0.5px; }
+#dp-topbar .dp-edition { font-size:10px; font-weight:600; color:#F5A623; border:1px solid rgba(245,166,35,0.3); padding:2px 8px; border-radius:4px; letter-spacing:1px; text-transform:uppercase; }
+#dp-topbar .dp-status { display:flex; align-items:center; gap:16px; font-size:11px; color:#666; }
+#dp-topbar .dp-status .dp-dot { width:6px; height:6px; border-radius:50%; background:#34C759; }
+#dp-topbar .dp-signout { font-size:12px; color:#666; cursor:pointer; transition:color 0.2s; border:none; background:none; }
+#dp-topbar .dp-signout:hover { color:#F5A623; }
+
+/* Main content area */
+#dp-main { flex:1; display:flex; overflow:hidden; position:relative; }
+
+/* Panel shared styles */
+.dp-panel { display:flex; transition:flex 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.3s; overflow:hidden; position:relative; }
+.dp-panel.dominant { flex:7; }
+.dp-panel.recessive { flex:3; }
+
+/* Vault panel */
+#dp-vault { border-right:1px solid rgba(245,166,35,0.08); }
+#dp-vault .dp-panel-nav { width:52px; min-width:52px; background:rgba(12,12,12,0.98); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:4px; border-right:1px solid rgba(255,255,255,0.04); }
+#dp-vault .dp-panel-content { flex:1; overflow-y:auto; overflow-x:hidden; padding:0; }
+
+/* OpenClaw panel */
+#dp-claw { }
+#dp-claw .dp-panel-nav { width:52px; min-width:52px; background:rgba(12,12,12,0.98); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:4px; border-right:1px solid rgba(255,255,255,0.04); }
+#dp-claw .dp-panel-content { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; }
+
+/* Nav buttons */
+.dp-nav-btn { width:38px; height:38px; border-radius:10px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; position:relative; }
+.dp-nav-btn svg { width:18px; height:18px; stroke:#555; stroke-width:1.8; fill:none; transition:stroke 0.2s; }
+.dp-nav-btn:hover { background:rgba(245,166,35,0.08); }
+.dp-nav-btn:hover svg { stroke:#F5A623; }
+.dp-nav-btn.active { background:rgba(245,166,35,0.12); }
+.dp-nav-btn.active svg { stroke:#F5A623; }
+.dp-nav-btn.active::before { content:''; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:#F5A623; border-radius:0 2px 2px 0; }
+
+/* Panel label */
+.dp-panel-label { font-size:9px; font-weight:700; color:#444; letter-spacing:1.5px; text-transform:uppercase; margin:0 0 8px; padding:0; writing-mode:vertical-lr; text-orientation:mixed; transform:rotate(180deg); }
+
+/* Divider / grab handle */
+#dp-divider { width:3px; min-width:3px; background:rgba(245,166,35,0.06); cursor:col-resize; position:relative; transition:background 0.2s; }
+#dp-divider:hover { background:rgba(245,166,35,0.2); }
+#dp-divider::after { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:3px; height:40px; background:rgba(245,166,35,0.3); border-radius:3px; }
+
+/* === VAULT FULL VIEW === */
+.vault-full { padding:28px 32px; }
+.vault-full h2 { font-size:22px; font-weight:700; color:#fff; margin:0 0 4px; }
+.vault-full .vault-sub { font-size:13px; color:#666; margin:0 0 24px; }
+
+.vault-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+.vault-stat { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:16px; transition:all 0.2s; cursor:pointer; }
+.vault-stat:hover { border-color:rgba(245,166,35,0.2); background:rgba(245,166,35,0.04); }
+.vault-stat .vs-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+.vault-stat .vs-icon svg { width:16px; height:16px; stroke-width:1.8; fill:none; }
+.vault-stat .vs-val { font-size:18px; font-weight:700; color:#fff; }
+.vault-stat .vs-label { font-size:11px; color:#666; margin-top:2px; }
+
+.vault-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:24px; }
+.vault-action { display:flex; align-items:center; gap:12px; padding:14px 16px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; cursor:pointer; transition:all 0.2s; }
+.vault-action:hover { border-color:rgba(245,166,35,0.2); background:rgba(245,166,35,0.04); }
+.vault-action .va-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.vault-action .va-icon svg { width:16px; height:16px; stroke-width:1.8; fill:none; }
+.vault-action .va-title { font-size:13px; font-weight:600; color:#e0e0e0; }
+.vault-action .va-desc { font-size:11px; color:#555; }
+
+.vault-section-title { font-size:13px; font-weight:600; color:#888; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+.vault-section-title svg { width:14px; height:14px; stroke:#888; stroke-width:1.8; fill:none; }
+
+.vault-storage { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:16px; margin-bottom:24px; }
+.vault-storage-bar { height:4px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; margin:10px 0 6px; }
+.vault-storage-fill { height:100%; background:linear-gradient(90deg,#F5A623,#E8960F); border-radius:4px; width:0.01%; }
+.vault-storage-text { display:flex; justify-content:space-between; font-size:11px; color:#555; }
+
+.vault-events { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:16px; }
+.vault-events-empty { font-size:12px; color:#555; padding:8px 0; }
+
+/* === VAULT SUMMARY VIEW (recessive) === */
+.vault-summary { padding:16px 14px; display:flex; flex-direction:column; gap:10px; }
+.vault-summary h3 { font-size:12px; font-weight:700; color:#F5A623; margin:0 0 4px; letter-spacing:0.5px; }
+.vs-mini { display:flex; align-items:center; gap:10px; padding:10px 12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; transition:all 0.2s; }
+.vs-mini:hover { border-color:rgba(245,166,35,0.2); }
+.vs-mini svg { width:14px; height:14px; stroke:#F5A623; stroke-width:1.8; fill:none; flex-shrink:0; }
+.vs-mini .vsm-info { flex:1; min-width:0; }
+.vs-mini .vsm-title { font-size:11px; font-weight:600; color:#ccc; }
+.vs-mini .vsm-val { font-size:10px; color:#555; }
+
+/* === OPENCLAW FULL VIEW === */
+.claw-full { display:flex; flex-direction:column; height:100%; padding:0; }
+.claw-header { padding:20px 28px 0; }
+.claw-header h2 { font-size:20px; font-weight:700; color:#fff; margin:0; display:flex; align-items:center; gap:10px; }
+.claw-header h2 .ch-orb { width:28px; height:28px; background:radial-gradient(circle at 40% 40%, #F5A623 0%, #D4890B 100%); border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 20px rgba(245,166,35,0.3); }
+.claw-header h2 .ch-orb svg { width:14px; height:14px; stroke:#080808; stroke-width:2; fill:none; }
+.claw-header .ch-sub { font-size:12px; color:#555; margin:4px 0 0; }
+
+.claw-chat { flex:1; display:flex; flex-direction:column; padding:16px 28px; overflow-y:auto; }
+.claw-messages { flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:12px; min-height:0; }
+.claw-welcome { text-align:center; padding:40px 20px; }
+.claw-welcome .cw-title { font-size:24px; font-weight:700; color:#fff; margin:0 0 6px; }
+.claw-welcome .cw-sub { font-size:13px; color:#666; }
+
+.claw-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px; }
+.claw-chip { padding:8px 16px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:20px; font-size:12px; color:#999; cursor:pointer; transition:all 0.2s; }
+.claw-chip:hover { border-color:rgba(245,166,35,0.3); color:#F5A623; background:rgba(245,166,35,0.05); }
+
+.claw-input-wrap { padding:0 28px 20px; }
+.claw-input-bar { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:4px 8px 4px 18px; transition:border-color 0.2s; }
+.claw-input-bar:focus-within { border-color:rgba(245,166,35,0.4); }
+.claw-input-bar input { flex:1; background:none; border:none; outline:none; color:#e8e8e8; font-size:14px; padding:10px 0; font-family:inherit; }
+.claw-input-bar input::placeholder { color:#555; }
+.claw-input-btn { width:34px; height:34px; border-radius:10px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; background:transparent; }
+.claw-input-btn svg { width:16px; height:16px; stroke:#666; stroke-width:1.8; fill:none; }
+.claw-input-btn:hover svg { stroke:#F5A623; }
+.claw-input-btn.send { background:#F5A623; }
+.claw-input-btn.send svg { stroke:#080808; }
+.claw-input-btn.send:hover { background:#E8960F; }
+
+/* Feature cards row in full claw view */
+.claw-features { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:0 28px 20px; }
+.claw-feat { padding:14px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; cursor:pointer; transition:all 0.2s; }
+.claw-feat:hover { border-color:rgba(245,166,35,0.2); background:rgba(245,166,35,0.04); }
+.claw-feat .cf-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+.claw-feat .cf-icon svg { width:14px; height:14px; stroke-width:1.8; fill:none; }
+.claw-feat .cf-title { font-size:12px; font-weight:600; color:#ddd; }
+.claw-feat .cf-desc { font-size:10px; color:#555; margin-top:3px; }
+
+/* === OPENCLAW SUMMARY VIEW (recessive) === */
+.claw-summary { display:flex; flex-direction:column; height:100%; }
+.claw-sum-header { padding:14px 14px 10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.claw-sum-header h3 { font-size:12px; font-weight:700; color:#F5A623; margin:0; display:flex; align-items:center; gap:6px; }
+.claw-sum-header h3 .csh-dot { width:6px; height:6px; border-radius:50%; background:#34C759; }
+.claw-sum-messages { flex:1; padding:10px 14px; overflow-y:auto; display:flex; flex-direction:column; justify-content:flex-end; gap:8px; }
+.claw-sum-empty { text-align:center; padding:30px 10px; font-size:11px; color:#555; }
+.claw-sum-input { padding:10px 14px; }
+.claw-sum-input-bar { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:3px 6px 3px 12px; }
+.claw-sum-input-bar input { flex:1; background:none; border:none; outline:none; color:#e8e8e8; font-size:12px; padding:8px 0; font-family:inherit; }
+.claw-sum-input-bar input::placeholder { color:#444; }
+.claw-sum-send { width:28px; height:28px; border-radius:7px; border:none; background:#F5A623; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.claw-sum-send svg { width:12px; height:12px; stroke:#080808; stroke-width:2; fill:none; }
+
+/* Bottom bar */
+#dp-bottom { height:28px; min-height:28px; display:flex; align-items:center; justify-content:center; gap:20px; background:rgba(10,10,10,0.95); border-top:1px solid rgba(255,255,255,0.04); font-size:10px; color:#444; }
+#dp-bottom .dpb-dot { width:5px; height:5px; border-radius:50%; background:#34C759; }
+#dp-bottom span { display:flex; align-items:center; gap:6px; }
+
+/* Scrollbar */
+.dp-panel-content::-webkit-scrollbar { width:4px; }
+.dp-panel-content::-webkit-scrollbar-track { background:transparent; }
+.dp-panel-content::-webkit-scrollbar-thumb { background:rgba(245,166,35,0.15); border-radius:4px; }
+
+/* Smooth transitions */
+.dp-panel .dp-panel-content > * { transition:opacity 0.3s; }
+
+/* ===== dp-refine-css ===== */
+
+/* Right panel active bar should be on RIGHT side */
+#dp-claw .dp-nav-btn.active::before { left:auto; right:0; border-radius:2px 0 0 2px; }
+
+/* Subtle amber glow on the OpenClaw panel border when active */
+#dp-claw.dominant { box-shadow: inset 1px 0 0 rgba(245,166,35,0.15); }
+#dp-vault.dominant { box-shadow: inset -1px 0 0 rgba(245,166,35,0.08); }
+
+/* Panel nav hover tooltip */
+.dp-nav-btn { position:relative; }
+.dp-nav-btn::after { content:attr(title); position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%); background:#1a1a1a; color:#e0e0e0; font-size:11px; font-weight:500; padding:4px 10px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.15s; z-index:100; border:1px solid rgba(255,255,255,0.06); }
+#dp-claw .dp-nav-btn::after { left:auto; right:calc(100% + 8px); }
+.dp-nav-btn:hover::after { opacity:1; }
+
+/* Vault summary clickable feel */
+.vault-summary .vs-mini { user-select:none; }
+.vault-summary h3 { cursor:pointer; }
+
+/* Feature cards subtle glow on hover */
+.claw-feat:hover { box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+.vault-stat:hover { box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+
+/* Chat chip active state */
+.claw-chip:active { transform:scale(0.97); }
+
+/* Animate the orb subtly */
+@keyframes orbPulse {
+  0%, 100% { box-shadow:0 0 20px rgba(245,166,35,0.3); }
+  50% { box-shadow:0 0 30px rgba(245,166,35,0.5); }
+}
+.ch-orb { animation: orbPulse 3s ease-in-out infinite; }
+
+/* The divider handle on hover */
+#dp-divider:hover::after { height:60px; background:rgba(245,166,35,0.5); }
+
+/* Summary view header glow */
+.claw-sum-header { cursor:pointer; }
+.claw-sum-header:hover h3 { color:#ffb84d; }
+
+/* Vault summary expand hint */
+.vault-summary h3::after { content:'expand →'; font-size:8px; color:#555; margin-left:auto; font-weight:400; letter-spacing:0; text-transform:none; }
+.vault-summary:hover h3::after { color:#F5A623; }
+
+/* OpenClaw summary expand hint */
+.claw-sum-header h3::after { content:' ← expand'; font-size:8px; color:#555; font-weight:400; margin-left:8px; }
+.claw-sum-header:hover h3::after { color:#F5A623; }
+
+/* Make the recessive panel's nav icons slightly dimmer */
+.dp-panel.recessive .dp-nav-btn svg { stroke:#3a3a3a; }
+.dp-panel.recessive .dp-nav-btn:hover svg { stroke:#F5A623; }
+.dp-panel.recessive .dp-nav-btn.active svg { stroke:#F5A623; }
+
+/* Send button active press */
+.claw-input-btn.send:active, .claw-sum-send:active { transform:scale(0.93); }
+
+/* Recessive panel content fade slightly */
+.dp-panel.recessive .dp-panel-content { opacity:0.9; }
+.dp-panel.dominant .dp-panel-content { opacity:1; }
+
+/* ===== dp-settings-css ===== */
+
+/* === SETTINGS VIEW === */
+.settings-view { padding:24px 28px; overflow-y:auto; }
+.settings-view h2 { font-size:20px; font-weight:700; color:#fff; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+.settings-view h2 svg { width:20px; height:20px; stroke:#F5A623; stroke-width:1.8; fill:none; }
+.settings-view .sv-sub { font-size:12px; color:#555; margin:0 0 24px; }
+
+.sv-section { margin-bottom:24px; }
+.sv-section-title { font-size:13px; font-weight:700; color:#F5A623; letter-spacing:0.5px; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+.sv-section-title svg { width:14px; height:14px; stroke:#F5A623; stroke-width:1.8; fill:none; }
+
+.sv-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px; margin-bottom:10px; }
+.sv-card:hover { border-color:rgba(255,255,255,0.1); }
+
+.sv-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.sv-row:last-child { margin-bottom:0; }
+.sv-label { font-size:12px; font-weight:500; color:#bbb; }
+.sv-desc { font-size:10px; color:#555; margin-top:2px; }
+
+/* Custom select */
+.sv-select { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:7px 12px; color:#e0e0e0; font-size:12px; font-family:inherit; outline:none; cursor:pointer; min-width:180px; appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
+.sv-select:focus { border-color:rgba(245,166,35,0.4); }
+.sv-select option { background:#1a1a1a; color:#e0e0e0; }
+
+/* Toggle */
+.sv-toggle { width:40px; height:22px; background:rgba(255,255,255,0.08); border-radius:12px; position:relative; cursor:pointer; transition:background 0.2s; border:none; flex-shrink:0; }
+.sv-toggle.on { background:rgba(245,166,35,0.3); }
+.sv-toggle::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#666; transition:all 0.2s; }
+.sv-toggle.on::after { left:21px; background:#F5A623; }
+
+/* Provider cards */
+.sv-providers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+.sv-provider { padding:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; cursor:pointer; transition:all 0.2s; text-align:center; }
+.sv-provider:hover { border-color:rgba(245,166,35,0.2); }
+.sv-provider.selected { border-color:#F5A623; background:rgba(245,166,35,0.06); }
+.sv-provider .svp-name { font-size:11px; font-weight:600; color:#ddd; margin-top:6px; }
+.sv-provider .svp-model { font-size:9px; color:#555; margin-top:2px; }
+.sv-provider .svp-icon { width:24px; height:24px; margin:0 auto; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; }
+
+/* Badge */
+.sv-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:9px; font-weight:600; }
+.sv-badge.local { background:rgba(34,197,94,0.1); color:#22C55E; }
+.sv-badge.cloud { background:rgba(59,130,246,0.1); color:#3B82F6; }
+.sv-badge.hybrid { background:rgba(245,166,35,0.1); color:#F5A623; }
+
+/* === INTELLIGENCE VIEW === */
+.intel-view { padding:24px 28px; }
+.intel-view h2 { font-size:20px; font-weight:700; color:#fff; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+.intel-view .iv-sub { font-size:12px; color:#555; margin:0 0 24px; }
+
+.intel-pipeline { display:flex; flex-direction:column; gap:12px; margin-bottom:24px; }
+.intel-step { display:flex; align-items:center; gap:14px; padding:14px 16px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; position:relative; }
+.intel-step .is-num { width:28px; height:28px; border-radius:50%; background:rgba(245,166,35,0.1); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#F5A623; flex-shrink:0; }
+.intel-step .is-info { flex:1; }
+.intel-step .is-title { font-size:13px; font-weight:600; color:#ddd; }
+.intel-step .is-desc { font-size:10px; color:#555; margin-top:2px; }
+.intel-step .is-status { font-size:10px; font-weight:600; padding:3px 8px; border-radius:4px; flex-shrink:0; }
+.intel-step .is-status.ready { background:rgba(34,197,94,0.1); color:#22C55E; }
+.intel-step .is-status.waiting { background:rgba(245,166,35,0.1); color:#F5A623; }
+.intel-step::after { content:''; position:absolute; left:30px; bottom:-12px; width:1px; height:12px; background:rgba(245,166,35,0.15); }
+.intel-step:last-child::after { display:none; }
+
+.intel-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:20px; }
+.intel-stat { padding:14px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; }
+.intel-stat .ist-val { font-size:22px; font-weight:700; color:#fff; }
+.intel-stat .ist-label { font-size:11px; color:#555; margin-top:2px; }
+.intel-stat .ist-sub { font-size:9px; color:#F5A623; margin-top:4px; }
+
+/* Import flow */
+.import-flow { padding:14px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:10px; }
+.import-source { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:all 0.2s; }
+.import-source:last-child { border-bottom:none; }
+.import-source:hover { padding-left:4px; }
+.import-source .ims-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.import-source .ims-name { font-size:12px; font-weight:600; color:#ddd; }
+.import-source .ims-desc { font-size:10px; color:#555; }
+.import-source .ims-arrow { color:#444; font-size:14px; margin-left:auto; }
+
+/* Vault context indicator in OpenClaw */
+.vault-context { display:flex; align-items:center; gap:8px; padding:8px 14px; margin:0 28px 12px; background:rgba(34,197,94,0.04); border:1px solid rgba(34,197,94,0.12); border-radius:8px; }
+.vault-context .vc-dot { width:6px; height:6px; border-radius:50%; background:#22C55E; flex-shrink:0; }
+.vault-context .vc-text { font-size:11px; color:#22C55E; }
+.vault-context .vc-detail { font-size:10px; color:#555; margin-left:auto; }
+
+/* ===== dp-fix-css ===== */
+
+.intel-view h2 svg, .settings-view h2 svg { width:20px !important; height:20px !important; min-width:20px; max-width:20px; flex-shrink:0; }
+.intel-view .sv-section-title svg { width:14px !important; height:14px !important; }
+.intel-pipeline .intel-step .is-num { min-width:28px; }
+.import-source .ims-icon svg { width:16px !important; height:16px !important; }
+.import-source { display:flex; align-items:center; gap:12px; }
+.import-source .ims-info { flex:1; }
+
+/* ===== dp-views-css ===== */
+
+/* ============ SECURE CHAT VIEW ============ */
+#v-secure-chat {
+  display: flex;
+  height: 100%;
+  background: #080808;
+}
+#sc-sidebar {
+  width: 320px;
+  border-right: 1px solid rgba(245,166,35,0.12);
+  display: flex;
+  flex-direction: column;
+  background: rgba(245,166,35,0.02);
+}
+#sc-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#sc-sidebar-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+.sc-header-actions {
+  display: flex;
+  gap: 8px;
+}
+.sc-header-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(245,166,35,0.08);
+  border: 1px solid rgba(245,166,35,0.12);
+  color: #F5A623;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sc-header-btn:hover {
+  background: rgba(245,166,35,0.16);
+}
+.sc-header-btn svg {
+  width: 16px;
+  height: 16px;
+}
+#sc-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(245,166,35,0.06);
+}
+#sc-search input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(245,166,35,0.1);
+  border-radius: 10px;
+  padding: 8px 12px 8px 36px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+#sc-search input:focus {
+  border-color: rgba(245,166,35,0.3);
+}
+#sc-search {
+  position: relative;
+}
+#sc-search svg {
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.3);
+}
+.sc-tabs {
+  display: flex;
+  padding: 8px 16px;
+  gap: 4px;
+  border-bottom: 1px solid rgba(245,166,35,0.06);
+}
+.sc-tab {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.sc-tab.active {
+  background: rgba(245,166,35,0.12);
+  color: #F5A623;
+}
+.sc-tab:hover:not(.active) {
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.6);
+}
+#sc-conv-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,0.2) transparent;
+}
+.sc-conv-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+.sc-conv-item:hover {
+  background: rgba(245,166,35,0.05);
+}
+.sc-conv-item.active {
+  background: rgba(245,166,35,0.08);
+  border-left: 2px solid #F5A623;
+}
+.sc-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+  position: relative;
+}
+.sc-avatar.human {
+  background: linear-gradient(135deg, #F5A623 0%, #E09000 100%);
+  color: #080808;
+}
+.sc-avatar.group {
+  background: linear-gradient(135deg, #7B61FF 0%, #5B3FDF 100%);
+  color: #fff;
+}
+.sc-avatar.agent {
+  background: linear-gradient(135deg, #00D68F 0%, #00A86B 100%);
+  color: #fff;
+}
+.sc-online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00D68F;
+  border: 2px solid #080808;
+}
+.sc-conv-info {
+  flex: 1;
+  min-width: 0;
+}
+.sc-conv-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sc-conv-name .sc-agent-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0,214,143,0.15);
+  color: #00D68F;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.sc-conv-name .sc-group-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(123,97,255,0.15);
+  color: #7B61FF;
+  font-weight: 600;
+}
+.sc-conv-preview {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sc-conv-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sc-conv-time {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+}
+.sc-unread {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #F5A623;
+  color: #080808;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Chat Area */
+#sc-chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+#sc-chat-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(245,166,35,0.02);
+}
+.sc-chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sc-chat-header-info h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+.sc-chat-header-info span {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+}
+.sc-chat-header-actions {
+  display: flex;
+  gap: 4px;
+}
+.sc-action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(245,166,35,0.06);
+  border: 1px solid rgba(245,166,35,0.1);
+  color: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sc-action-btn:hover {
+  background: rgba(245,166,35,0.12);
+  color: #F5A623;
+}
+.sc-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.sc-action-btn.call-btn:hover {
+  background: rgba(0,214,143,0.12);
+  color: #00D68F;
+}
+.sc-action-btn.video-btn:hover {
+  background: rgba(0,214,143,0.12);
+  color: #00D68F;
+}
+#sc-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,0.15) transparent;
+}
+.sc-date-divider {
+  text-align: center;
+  padding: 12px 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.2);
+  position: relative;
+}
+.sc-date-divider::before, .sc-date-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 50px);
+  height: 1px;
+  background: rgba(255,255,255,0.05);
+}
+.sc-date-divider::before { left: 0; }
+.sc-date-divider::after { right: 0; }
+.sc-msg {
+  display: flex;
+  gap: 8px;
+  max-width: 75%;
+  animation: msgIn 0.2s ease;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sc-msg.sent {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.sc-msg.received {
+  align-self: flex-start;
+}
+.sc-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+.sc-msg-avatar.human { background: rgba(245,166,35,0.2); color: #F5A623; }
+.sc-msg-avatar.agent { background: rgba(0,214,143,0.2); color: #00D68F; }
+.sc-msg-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  position: relative;
+}
+.sc-msg.sent .sc-msg-bubble {
+  background: rgba(245,166,35,0.12);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.sc-msg.received .sc-msg-bubble {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  border-bottom-left-radius: 4px;
+}
+.sc-msg.received.agent-msg .sc-msg-bubble {
+  background: rgba(0,214,143,0.08);
+  border: 1px solid rgba(0,214,143,0.12);
+}
+.sc-msg-sender {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.sc-msg.received .sc-msg-sender { color: #F5A623; }
+.sc-msg.received.agent-msg .sc-msg-sender { color: #00D68F; }
+.sc-msg-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.2);
+  margin-top: 4px;
+  text-align: right;
+}
+.sc-msg-status {
+  font-size: 10px;
+  color: rgba(245,166,35,0.4);
+}
+
+/* E2E badge in messages */
+.sc-e2e-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: rgba(0,214,143,0.5);
+  margin-top: 2px;
+}
+.sc-e2e-badge svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Message Input */
+#sc-input-area {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(245,166,35,0.02);
+}
+.sc-input-actions {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+.sc-input-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sc-input-btn:hover {
+  color: #F5A623;
+  background: rgba(245,166,35,0.08);
+}
+.sc-input-btn svg {
+  width: 18px;
+  height: 18px;
+}
+#sc-msg-input {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(245,166,35,0.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #fff;
+  font-size: 13.5px;
+  outline: none;
+  resize: none;
+  min-height: 20px;
+  max-height: 120px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  line-height: 1.4;
+}
+#sc-msg-input:focus {
+  border-color: rgba(245,166,35,0.25);
+}
+#sc-msg-input::placeholder {
+  color: rgba(255,255,255,0.2);
+}
+.sc-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #F5A623;
+  border: none;
+  color: #080808;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+.sc-send-btn:hover {
+  background: #FFB940;
+  transform: scale(1.05);
+}
+.sc-send-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Agent Invite Banner */
+.sc-agent-invite {
+  margin: 8px 20px;
+  padding: 10px 14px;
+  background: rgba(0,214,143,0.06);
+  border: 1px solid rgba(0,214,143,0.12);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+.sc-agent-invite svg {
+  width: 18px;
+  height: 18px;
+  color: #00D68F;
+  flex-shrink: 0;
+}
+.sc-agent-invite button {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(0,214,143,0.15);
+  border: 1px solid rgba(0,214,143,0.2);
+  color: #00D68F;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.sc-agent-invite button:hover {
+  background: rgba(0,214,143,0.25);
+}
+
+/* No chat selected state */
+.sc-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.15);
+  gap: 12px;
+}
+.sc-empty-state svg {
+  width: 48px;
+  height: 48px;
+  opacity: 0.3;
+}
+.sc-empty-state p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ============ CALL UI ============ */
+.sc-call-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.92);
+  backdrop-filter: blur(20px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sc-call-avatar-large {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #F5A623, #E09000);
+  color: #080808;
+  box-shadow: 0 0 60px rgba(245,166,35,0.3);
+  animation: callPulse 2s ease-in-out infinite;
+}
+@keyframes callPulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(245,166,35,0.2); }
+  50% { box-shadow: 0 0 80px rgba(245,166,35,0.4); }
+}
+.sc-call-info {
+  text-align: center;
+}
+.sc-call-info h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+.sc-call-info p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.4);
+  margin: 0;
+}
+.sc-call-timer {
+  font-size: 18px;
+  color: #F5A623;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.sc-call-controls {
+  display: flex;
+  gap: 16px;
+}
+.sc-call-ctrl {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sc-call-ctrl:hover {
+  background: rgba(255,255,255,0.15);
+}
+.sc-call-ctrl.muted {
+  background: rgba(245,166,35,0.2);
+  border-color: rgba(245,166,35,0.3);
+  color: #F5A623;
+}
+.sc-call-ctrl svg {
+  width: 24px;
+  height: 24px;
+}
+.sc-call-ctrl.end-call {
+  background: #E03131;
+  border-color: #E03131;
+  width: 64px;
+  height: 64px;
+}
+.sc-call-ctrl.end-call:hover {
+  background: #FF4040;
+}
+.sc-call-e2e {
+  font-size: 11px;
+  color: rgba(0,214,143,0.5);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sc-call-e2e svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ============ CALENDAR VIEW ============ */
+#v-calendar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #080808;
+}
+#cal-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(245,166,35,0.08);
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cal-nav h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  min-width: 180px;
+  text-align: center;
+}
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(245,166,35,0.06);
+  border: 1px solid rgba(245,166,35,0.1);
+  color: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cal-nav-btn:hover {
+  background: rgba(245,166,35,0.15);
+  color: #F5A623;
+}
+.cal-nav-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.cal-header-actions {
+  display: flex;
+  gap: 8px;
+}
+.cal-today-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.15);
+  color: #F5A623;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cal-today-btn:hover {
+  background: rgba(245,166,35,0.2);
+}
+.cal-add-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #F5A623;
+  border: none;
+  color: #080808;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.cal-add-btn:hover {
+  background: #FFB940;
+}
+.cal-add-btn svg {
+  width: 14px;
+  height: 14px;
+}
+#cal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+#cal-grid-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding-bottom: 8px;
+}
+.cal-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+}
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  flex: 1;
+}
+.cal-day {
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.03);
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-height: 70px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.cal-day:hover {
+  background: rgba(245,166,35,0.04);
+  border-color: rgba(245,166,35,0.1);
+}
+.cal-day.other-month {
+  opacity: 0.25;
+}
+.cal-day.today {
+  border-color: rgba(245,166,35,0.25);
+  background: rgba(245,166,35,0.05);
+}
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+.cal-day.today .cal-day-num {
+  color: #F5A623;
+  font-weight: 700;
+}
+.cal-event {
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.cal-event.meeting {
+  background: rgba(245,166,35,0.15);
+  color: #F5A623;
+}
+.cal-event.call {
+  background: rgba(0,214,143,0.15);
+  color: #00D68F;
+}
+.cal-event.task {
+  background: rgba(123,97,255,0.15);
+  color: #7B61FF;
+}
+.cal-event.reminder {
+  background: rgba(255,107,107,0.15);
+  color: #FF6B6B;
+}
+
+/* Calendar Sidebar */
+#cal-sidebar {
+  width: 280px;
+  border-left: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  flex-direction: column;
+  background: rgba(245,166,35,0.02);
+  overflow-y: auto;
+}
+#cal-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(245,166,35,0.06);
+}
+#cal-sidebar-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 4px 0;
+}
+#cal-sidebar-header span {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+}
+.cal-upcoming-list {
+  padding: 8px;
+}
+.cal-upcoming-item {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cal-upcoming-item:hover {
+  background: rgba(245,166,35,0.05);
+  border-color: rgba(245,166,35,0.1);
+}
+.cal-upcoming-time {
+  font-size: 11px;
+  color: #F5A623;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.cal-upcoming-title {
+  font-size: 13px;
+  color: #fff;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.cal-upcoming-desc {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+}
+.cal-upcoming-participants {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.cal-participant {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+}
+.cal-participant.human {
+  background: rgba(245,166,35,0.2);
+  color: #F5A623;
+}
+.cal-participant.agent {
+  background: rgba(0,214,143,0.2);
+  color: #00D68F;
+}
+
+/* Agent in Calendar */
+.cal-agent-suggest {
+  margin: 12px 8px;
+  padding: 12px;
+  background: rgba(0,214,143,0.05);
+  border: 1px solid rgba(0,214,143,0.1);
+  border-radius: 10px;
+}
+.cal-agent-suggest h5 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #00D68F;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cal-agent-suggest h5 svg {
+  width: 14px;
+  height: 14px;
+}
+.cal-agent-suggest p {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ===== dp-fix-svg-css ===== */
+
+/* Fix SVG in message status */
+.sc-msg-status svg {
+  width: 12px !important;
+  height: 12px !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+.sc-msg-time svg {
+  width: 12px !important;
+  height: 12px !important;
+  display: inline-block !important;
+}
+/* Fix SVG in chat header action buttons */
+.sc-chat-header-actions .sc-action-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+/* Fix E2E badge SVG */
+.sc-e2e-badge svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+/* Fix input button SVGs */
+.sc-input-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+.sc-send-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+/* Fix search SVG */
+#sc-search svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+/* Fix header button SVGs */
+.sc-header-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+/* Ensure agent badge in chat header */
+.sc-chat-header-actions button svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+/* Calendar nav button fix */
+.cal-nav-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+.cal-add-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+.cal-agent-suggest h5 svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+/* Call overlay SVGs */
+.sc-call-ctrl svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+.sc-call-e2e svg {
+  width: 12px !important;
+  height: 12px !important;
+}
+/* Active nav state for secure button */
+#vault-nav button.active {
+  position: relative;
+}
+
+/* Fix the tab that shows "Secure" — should show "All" in first tab */
+.sc-tabs .sc-tab:first-child {
+  /* Already correct */
+}
+
+/* Chat header area — better spacing */
+#sc-chat-header {
+  min-height: 56px;
+}
+
+/* Fix conversation preview text truncation */
+.sc-conv-preview {
+  max-width: 160px;
+}
+
+/* ===== dp-polish-css ===== */
+
+/* Better active state for vault nav */
+#vault-nav button.active {
+  background: rgba(245,166,35,0.1) !important;
+  color: #F5A623 !important;
+}
+#vault-nav button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: #F5A623;
+  border-radius: 0 2px 2px 0;
+}
+#vault-nav button {
+  position: relative;
+}
+
+/* Smooth transitions for view switching */
+#vault-content > div {
+  animation: viewFadeIn 0.2s ease;
+}
+@keyframes viewFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Make search icon in secure chat smaller and properly positioned */
+#sc-search svg {
+  pointer-events: none;
+}
+
+/* Better tab active state */
+.sc-tab.active {
+  background: rgba(245,166,35,0.15) !important;
+  color: #F5A623 !important;
+  font-weight: 600 !important;
+}
+
+/* ===== dp-thread-css ===== */
+
+/* Thread Panel — slides in from right over chat messages */
+#sc-thread-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100%;
+  background: #0a0a0a;
+  border-left: 1px solid rgba(245,166,35,0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 24px rgba(0,0,0,0.4);
+}
+#sc-thread-panel.open {
+  transform: translateX(0);
+}
+
+/* Thread Header */
+.thread-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(245,166,35,0.02);
+  flex-shrink: 0;
+}
+.thread-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thread-header h4 svg {
+  width: 16px !important;
+  height: 16px !important;
+  color: #F5A623;
+}
+.thread-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.thread-close-btn:hover {
+  background: rgba(245,166,35,0.1);
+  color: #F5A623;
+  border-color: rgba(245,166,35,0.15);
+}
+.thread-close-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Original Message in Thread */
+.thread-origin {
+  padding: 16px;
+  border-bottom: 1px solid rgba(245,166,35,0.06);
+  background: rgba(255,255,255,0.015);
+  flex-shrink: 0;
+}
+.thread-origin-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.thread-origin-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.thread-origin-avatar.human { background: rgba(245,166,35,0.2); color: #F5A623; }
+.thread-origin-avatar.agent { background: rgba(0,214,143,0.2); color: #00D68F; }
+.thread-origin-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+.thread-origin-name.agent-name { color: #00D68F; }
+.thread-origin-time {
+  font-size: 11px;
+  color: rgba(255,255,255,0.2);
+  margin-left: auto;
+}
+.thread-origin-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.5;
+  padding-left: 36px;
+}
+
+/* Reply count badge */
+.thread-reply-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px 8px 52px;
+  font-size: 11px;
+  color: rgba(245,166,35,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  flex-shrink: 0;
+}
+.thread-reply-count svg {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Thread Replies */
+.thread-replies {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,0.15) transparent;
+}
+.thread-reply {
+  display: flex;
+  gap: 8px;
+  animation: replyIn 0.2s ease;
+}
+@keyframes replyIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.thread-reply-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.thread-reply-avatar.human { background: rgba(245,166,35,0.15); color: #F5A623; }
+.thread-reply-avatar.agent { background: rgba(0,214,143,0.15); color: #00D68F; }
+.thread-reply-avatar.self { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+.thread-reply-body {
+  flex: 1;
+  min-width: 0;
+}
+.thread-reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.thread-reply-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+}
+.thread-reply-name.agent-name { color: #00D68F; }
+.thread-reply-name.self-name { color: #F5A623; }
+.thread-reply-timestamp {
+  font-size: 10px;
+  color: rgba(255,255,255,0.15);
+}
+.thread-reply-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.45;
+}
+.thread-reply-text.agent-text {
+  padding: 8px 10px;
+  background: rgba(0,214,143,0.05);
+  border: 1px solid rgba(0,214,143,0.08);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+/* Thread Input */
+.thread-input-area {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(245,166,35,0.08);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(245,166,35,0.02);
+  flex-shrink: 0;
+}
+.thread-input {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(245,166,35,0.1);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  resize: none;
+  min-height: 18px;
+  max-height: 80px;
+  font-family: inherit;
+  line-height: 1.4;
+  transition: border-color 0.2s;
+}
+.thread-input:focus {
+  border-color: rgba(245,166,35,0.25);
+}
+.thread-input::placeholder {
+  color: rgba(255,255,255,0.2);
+}
+.thread-send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #F5A623;
+  border: none;
+  color: #080808;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.thread-send-btn:hover {
+  background: #FFB940;
+}
+.thread-send-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Thread indicator on messages — clickable */
+.sc-msg-bubble {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sc-msg.sent .sc-msg-bubble:hover {
+  background: rgba(245,166,35,0.18);
+}
+.sc-msg.received .sc-msg-bubble:hover {
+  background: rgba(255,255,255,0.09);
+}
+.sc-msg.received.agent-msg .sc-msg-bubble:hover {
+  background: rgba(0,214,143,0.12);
+}
+
+/* Thread reply count badge on messages */
+.sc-thread-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #F5A623;
+  cursor: pointer;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245,166,35,0.06);
+  transition: background 0.15s;
+}
+.sc-thread-badge:hover {
+  background: rgba(245,166,35,0.12);
+}
+.sc-thread-badge svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+/* Make chat area position relative for thread panel overlay */
+#sc-chat-area {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== dp-media-viewer-css ===== */
+
+/* ============ UNIVERSAL VIEWER OVERLAY ============ */
+#mv-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.95);
+  backdrop-filter: blur(20px);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  animation: mvFadeIn 0.25s ease;
+}
+@keyframes mvFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Viewer Header */
+.mv-header {
+  height: 52px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(245,166,35,0.08);
+  flex-shrink: 0;
+  background: rgba(8,8,8,0.8);
+}
+.mv-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mv-file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.mv-file-icon.pdf { background: rgba(255,87,87,0.15); color: #FF5757; }
+.mv-file-icon.img { background: rgba(123,97,255,0.15); color: #7B61FF; }
+.mv-file-icon.vid { background: rgba(0,214,143,0.15); color: #00D68F; }
+.mv-file-icon.audio { background: rgba(255,107,107,0.15); color: #FF6B6B; }
+.mv-file-icon.doc { background: rgba(245,166,35,0.15); color: #F5A623; }
+.mv-file-icon.code { background: rgba(78,205,196,0.15); color: #4ECDC4; }
+.mv-file-info h4 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  margin: 0;
+}
+.mv-file-info span {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+}
+.mv-header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mv-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mv-btn:hover {
+  background: rgba(245,166,35,0.1);
+  color: #F5A623;
+  border-color: rgba(245,166,35,0.15);
+}
+.mv-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+.mv-btn.close-btn:hover {
+  background: rgba(255,87,87,0.1);
+  color: #FF5757;
+  border-color: rgba(255,87,87,0.15);
+}
+.mv-btn-label {
+  padding: 0 12px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  font-weight: 500;
+}
+.mv-btn-label:hover {
+  background: rgba(245,166,35,0.1);
+  color: #F5A623;
+}
+.mv-btn-label svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Viewer Body */
+.mv-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============ IMAGE VIEWER ============ */
+.mv-image-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.mv-image {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease;
+  background: #1a1a1a;
+}
+.mv-image-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(8,8,8,0.7);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 2;
+}
+.mv-image-nav:hover {
+  background: rgba(245,166,35,0.15);
+  color: #F5A623;
+  border-color: rgba(245,166,35,0.2);
+}
+.mv-image-nav svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+.mv-image-nav.prev { left: 20px; }
+.mv-image-nav.next { right: 20px; }
+.mv-image-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  background: rgba(8,8,8,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+.mv-image-meta {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 8px 12px;
+  background: rgba(8,8,8,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ============ VIDEO PLAYER ============ */
+.mv-video-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.mv-video-screen {
+  position: relative;
+  width: 80%;
+  max-width: 960px;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.mv-video-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+.mv-video-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(245,166,35,0.9);
+  border: none;
+  color: #080808;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(245,166,35,0.3);
+}
+.mv-video-play-btn:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: #FFB940;
+}
+.mv-video-play-btn svg {
+  width: 32px !important;
+  height: 32px !important;
+  margin-left: 4px;
+}
+.mv-video-controls {
+  width: 80%;
+  max-width: 960px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mv-video-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.mv-video-progress-bar {
+  height: 100%;
+  background: #F5A623;
+  border-radius: 2px;
+  width: 35%;
+  transition: width 0.1s;
+}
+.mv-video-progress:hover {
+  height: 6px;
+}
+.mv-video-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mv-video-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mv-video-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mv-ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mv-ctrl-btn:hover {
+  color: #F5A623;
+  background: rgba(245,166,35,0.08);
+}
+.mv-ctrl-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+.mv-ctrl-btn.play-btn svg {
+  width: 22px !important;
+  height: 22px !important;
+}
+.mv-time-display {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  font-variant-numeric: tabular-nums;
+}
+.mv-volume-slider {
+  width: 80px;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+.mv-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #F5A623;
+  cursor: pointer;
+}
+
+/* ============ AUDIO PLAYER ============ */
+.mv-audio-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+}
+.mv-audio-art {
+  width: 200px;
+  height: 200px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05));
+  border: 1px solid rgba(245,166,35,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+}
+.mv-audio-art svg {
+  width: 64px !important;
+  height: 64px !important;
+  color: rgba(245,166,35,0.4);
+}
+.mv-audio-info {
+  text-align: center;
+}
+.mv-audio-info h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 4px 0;
+}
+.mv-audio-info span {
+  font-size: 13px;
+  color: rgba(255,255,255,0.3);
+}
+.mv-audio-wave {
+  width: 500px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.mv-wave-bar {
+  width: 3px;
+  background: rgba(245,166,35,0.3);
+  border-radius: 2px;
+  transition: height 0.15s, background 0.15s;
+}
+.mv-wave-bar.played {
+  background: #F5A623;
+}
+.mv-audio-controls {
+  width: 500px;
+}
+.mv-audio-progress {
+  width: 100%;
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.mv-audio-progress-bar {
+  height: 100%;
+  background: #F5A623;
+  border-radius: 2px;
+  width: 0%;
+}
+.mv-audio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* ============ DOCUMENT READER ============ */
+.mv-doc-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+.mv-doc-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,0.15) transparent;
+}
+.mv-doc-page {
+  max-width: 700px;
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 48px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.mv-doc-page h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+  border-bottom: 2px solid rgba(245,166,35,0.2);
+  padding-bottom: 12px;
+}
+.mv-doc-page h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #F5A623;
+  margin: 24px 0 8px 0;
+}
+.mv-doc-page h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  margin: 20px 0 6px 0;
+}
+.mv-doc-page p {
+  margin: 0 0 12px 0;
+  color: rgba(255,255,255,0.65);
+}
+.mv-doc-page ul {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+  color: rgba(255,255,255,0.6);
+}
+.mv-doc-page li {
+  margin-bottom: 4px;
+}
+.mv-doc-page code {
+  background: rgba(245,166,35,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #F5A623;
+}
+.mv-doc-page pre {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.6);
+  margin: 12px 0;
+}
+.mv-doc-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.mv-doc-page th {
+  background: rgba(245,166,35,0.08);
+  color: #F5A623;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.mv-doc-page td {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.55);
+}
+
+/* Doc sidebar (outline) */
+.mv-doc-sidebar {
+  width: 240px;
+  border-left: 1px solid rgba(245,166,35,0.08);
+  padding: 16px;
+  overflow-y: auto;
+  background: rgba(245,166,35,0.02);
+}
+.mv-doc-sidebar h5 {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
+}
+.mv-doc-outline-item {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+}
+.mv-doc-outline-item:hover {
+  background: rgba(245,166,35,0.06);
+  color: rgba(255,255,255,0.7);
+}
+.mv-doc-outline-item.active {
+  background: rgba(245,166,35,0.1);
+  color: #F5A623;
+}
+.mv-doc-outline-item.indent {
+  padding-left: 20px;
+  font-size: 11px;
+}
+
+/* Page indicator for PDF */
+.mv-page-indicator {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ============ CODE VIEWER ============ */
+.mv-code-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.mv-code-content {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  display: flex;
+}
+.mv-code-lines {
+  padding: 20px 12px;
+  background: rgba(245,166,35,0.02);
+  border-right: 1px solid rgba(255,255,255,0.04);
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+}
+.mv-code-line-num {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.15);
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+.mv-code-text {
+  flex: 1;
+  padding: 20px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  color: rgba(255,255,255,0.7);
+  white-space: pre;
+  overflow-x: auto;
+}
+.mv-code-text .keyword { color: #FF6B6B; }
+.mv-code-text .string { color: #00D68F; }
+.mv-code-text .comment { color: rgba(255,255,255,0.25); font-style: italic; }
+.mv-code-text .number { color: #F5A623; }
+.mv-code-text .function { color: #7B61FF; }
+
+/* ============ SPREADSHEET VIEWER ============ */
+.mv-sheet-container {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 20px;
+}
+.mv-sheet-table {
+  border-collapse: collapse;
+  width: auto;
+  min-width: 80%;
+  margin: 0 auto;
+}
+.mv-sheet-table th {
+  background: rgba(245,166,35,0.08);
+  color: #F5A623;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.mv-sheet-table td {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+}
+.mv-sheet-table tr:hover td {
+  background: rgba(245,166,35,0.03);
+}
+.mv-sheet-table .cell-number {
+  text-align: right;
+  color: #F5A623;
+  font-variant-numeric: tabular-nums;
+}
+
+/* AI Analysis badge in viewer */
+.mv-ai-badge {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  padding: 8px 14px;
+  background: rgba(0,214,143,0.08);
+  border: 1px solid rgba(0,214,143,0.12);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(0,214,143,0.7);
+}
+.mv-ai-badge svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+</style>
+</head>
+<body>
+<!-- ===== LOGIN OVERLAY ===== -->
+<div id="login-overlay" style="position:fixed;inset:0;background:#080808;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="width:360px;background:rgba(255,255,255,0.03);border:1px solid rgba(245,166,35,0.2);border-radius:16px;padding:40px;text-align:center">
+    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#F5A623,#E09000);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:18px;font-weight:700;color:#080808">07</div>
+    <div style="font-size:11px;font-weight:700;color:#F5A623;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">0711 VAULT</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.3);margin-bottom:24px">Sign in to your vault</div>
+    <input id="login-email" type="email" placeholder="Email" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#e8e8e8;font-size:14px;margin-bottom:10px;outline:none;box-sizing:border-box;font-family:inherit">
+    <input id="login-password" type="password" placeholder="Password" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#e8e8e8;font-size:14px;margin-bottom:16px;outline:none;box-sizing:border-box;font-family:inherit">
+    <button id="login-btn" style="width:100%;background:#F5A623;color:#080808;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background 0.2s" onmouseover="this.style.background='#FFB940'" onmouseout="this.style.background='#F5A623'">Sign In</button>
+    <div id="login-error" style="color:#ff6b6b;font-size:12px;margin-top:12px;display:none"></div>
+    <div style="margin-top:24px;font-size:11px;color:rgba(255,255,255,0.15)">End-to-end encrypted</div>
+  </div>
+</div>
+
+<div id="dp-shell" style="display:none">
+<div id="dp-topbar">
+  <div class="dp-logo">
+    <div class="dp-logo-icon">07</div>
+    <div class="dp-logo-text">0711</div>
+    <div class="dp-edition">VAULT EDITION</div>
+  </div>
+  <div class="dp-status">
+    <span><span class="dp-dot"></span> OpenClaw H200V</span>
+    <span>Running Locally</span>
+    <span>Encrypted</span>
+    <button class="dp-signout" onclick="document.querySelector('[class*=sign-out], button')">Sign Out</button>
+  </div>
+</div>
+
+<div id="dp-main">
+  <!-- ===== VAULT PANEL (LEFT) ===== -->
+  <div id="dp-vault" class="dp-panel dominant">
+    <div class="dp-panel-nav" id="vault-nav">
+  <button class="dp-nav-btn" data-v="home" title="Vault"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></button>
+  <button class="dp-nav-btn active" data-v="files" title="Files"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"></path></svg></button>
+  <button class="dp-nav-btn" data-v="calendar" title="Calendar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>
+  <button class="dp-nav-btn" data-v="secure" title="Secure"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg></button>
+  <div style="flex:1"></div>
+  <button class="dp-nav-btn" data-v="settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg></button>
+</div>
+    <div class="dp-panel-content" id="vault-content">
+      <!-- Vault Full View -->
+      <div class="vault-full" id="vault-full-view" style="display: none;">
+<h2>Your Vault</h2>
+<p class="vault-sub">Everything secure, in one place</p>
+
+<div class="vault-stat-grid">
+  <div class="vault-stat">
+    <div class="vs-icon" style="background:rgba(59,130,246,0.1)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg></div>
+    <div class="vs-val">0</div>
+    <div class="vs-label">Photos</div>
+  </div>
+  <div class="vault-stat">
+    <div class="vs-icon" style="background:rgba(168,85,247,0.1)"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div>
+    <div class="vs-val">0</div>
+    <div class="vs-label">Documents</div>
+  </div>
+  <div class="vault-stat">
+    <div class="vs-icon" style="background:rgba(34,197,94,0.1)"><svg style="stroke:#22C55E" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+    <div class="vs-val">0</div>
+    <div class="vs-label">Events</div>
+  </div>
+  <div class="vault-stat">
+    <div class="vs-icon" style="background:rgba(245,166,35,0.1)"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg></div>
+    <div class="vs-val">0.00 GB</div>
+    <div class="vs-label">of 5 GB</div>
+  </div>
+</div>
+
+<div class="vault-actions">
+  <div class="vault-action">
+    <div class="va-icon" style="background:rgba(59,130,246,0.08)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+    <div><div class="va-title">Upload</div><div class="va-desc">Photos &amp; files</div></div>
+  </div>
+  <div class="vault-action">
+    <div class="va-icon" style="background:rgba(168,85,247,0.08)"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></div>
+    <div><div class="va-title">Scan</div><div class="va-desc">Document capture</div></div>
+  </div>
+  <div class="vault-action">
+    <div class="va-icon" style="background:rgba(34,197,94,0.08)"><svg style="stroke:#22C55E" viewBox="0 0 24 24"><path d="M12 3v12"></path><polyline points="8 11 12 15 16 11"></polyline><path d="M20 21H4"></path></svg></div>
+    <div><div class="va-title">Import</div><div class="va-desc">Apple Photos, iMessage</div></div>
+  </div>
+  <div class="vault-action">
+    <div class="va-icon" style="background:rgba(245,166,35,0.08)"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg></div>
+    <div><div class="va-title">Share</div><div class="va-desc">Secure links</div></div>
+  </div>
+</div>
+
+<div class="vault-section-title"><svg style="stroke:#F5A623;width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg> AI Pipeline</div>
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Ingest ✓</span>
+  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Vision ✓</span>
+  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">OCR ✓</span>
+  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Embeddings ✓</span>
+  <span class="sv-badge local" style="font-size:10px;padding:4px 10px">Search ✓</span>
+  <span class="sv-badge hybrid" style="font-size:10px;padding:4px 10px">OpenClaw ✓</span>
+</div>
+
+<div class="vault-storage">
+  <div style="display:flex;justify-content:space-between;align-items:baseline">
+    <span style="font-size:14px;font-weight:600;color:#fff">0.00 GB</span>
+    <span style="font-size:11px;color:#555">of 5 GB · Free Tier</span>
+  </div>
+  <div class="vault-storage-bar"><div class="vault-storage-fill"></div></div>
+  <div class="vault-storage-text"><span>Encrypted · SQLite-vec</span><span>100% Local</span></div>
+</div>
+
+<div class="vault-events">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-size:12px;font-weight:600;color:#888">Upcoming</span>
+    <span style="font-size:11px;color:#F5A623;cursor:pointer">Create event →</span>
+  </div>
+  <div class="vault-events-empty">No events this week</div>
+</div>
+</div>
+
+      <!-- Vault Summary View (when recessive) -->
+      <div class="vault-summary" id="vault-summary-view" style="display: none;">
+        <h3>Vault</h3>
+        <div class="vs-mini"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg><div class="vsm-info"><div class="vsm-title">Photos</div><div class="vsm-val">0 items</div></div></div>
+        <div class="vs-mini"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg><div class="vsm-info"><div class="vsm-title">Documents</div><div class="vsm-val">0 items</div></div></div>
+        <div class="vs-mini"><svg style="stroke:#22C55E" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg><div class="vsm-info"><div class="vsm-title">Calendar</div><div class="vsm-val">No events</div></div></div>
+        <div class="vs-mini"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg><div class="vsm-info"><div class="vsm-title">Storage</div><div class="vsm-val">0.00 / 5 GB</div></div></div>
+        <div class="vs-mini"><svg style="stroke:#888" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg><div class="vsm-info"><div class="vsm-title">Secure Chat</div><div class="vsm-val">Encrypted</div></div></div>
+        <div class="vs-mini"><svg style="stroke:#888" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg><div class="vsm-info"><div class="vsm-title">Shared Links</div><div class="vsm-val">0 active</div></div></div>
+      </div>
+    <div class="settings-view" id="vault-settings-view" style="display: none;">
+<h2><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg> System Settings</h2>
+<p class="sv-sub">Configure your Vault intelligence, LLM providers, and privacy controls</p>
+
+<div class="sv-section">
+  <div class="sv-section-title"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg> LLM Provider</div>
+  <div class="sv-providers">
+    <div class="sv-provider" data-llm="anthropic">
+      <div class="svp-icon" style="background:rgba(204,169,114,0.15);color:#CCA972">C</div>
+      <div class="svp-name">Anthropic</div>
+      <div class="svp-model">Claude 3.5 Sonnet</div>
+    </div>
+    <div class="sv-provider" data-llm="openai">
+      <div class="svp-icon" style="background:rgba(116,185,141,0.15);color:#74B98D">G</div>
+      <div class="svp-name">OpenAI</div>
+      <div class="svp-model">GPT-4o</div>
+    </div>
+    <div class="sv-provider" data-llm="gemini">
+      <div class="svp-icon" style="background:rgba(66,133,244,0.15);color:#4285F4">G</div>
+      <div class="svp-name">Google</div>
+      <div class="svp-model">Gemini 2.0 Pro</div>
+    </div>
+    <div class="sv-provider selected" data-llm="mistral">
+      <div class="svp-icon" style="background:rgba(255,119,0,0.15);color:#FF7700">M</div>
+      <div class="svp-name">Mistral</div>
+      <div class="svp-model">Mistral Large</div>
+    </div>
+    <div class="sv-provider" data-llm="local">
+      <div class="svp-icon" style="background:rgba(34,197,94,0.15);color:#22C55E">L</div>
+      <div class="svp-name">Local / Ollama</div>
+      <div class="svp-model">Llama 3.3 70B</div>
+    </div>
+    <div class="sv-provider" data-llm="custom">
+      <div class="svp-icon" style="background:rgba(168,85,247,0.15);color:#A855F7">+</div>
+      <div class="svp-name">Custom</div>
+      <div class="svp-model">OpenRouter / API</div>
+    </div>
+  </div>
+  <div class="sv-card">
+    <div class="sv-row">
+      <div><div class="sv-label">Active Model</div><div class="sv-desc">Used for chat, analysis, and agent tasks</div></div>
+      <select class="sv-select">
+        <option>Claude 3.5 Sonnet</option>
+        <option>Claude 3 Opus</option>
+        <option>Claude 3 Haiku</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Vision Model</div><div class="sv-desc">Photo analysis, face recognition, scene detection</div></div>
+      <select class="sv-select">
+        <option>Claude 3.5 Sonnet (Vision)</option>
+        <option>GPT-4o Vision</option>
+        <option>Gemini 2.0 Flash</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Processing Mode</div></div>
+      <span class="sv-badge hybrid">Hybrid</span>
+    </div>
+  </div>
+</div>
+
+<div class="sv-section">
+  <div class="sv-section-title"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg> Embedding &amp; Search</div>
+  <div class="sv-card">
+    <div class="sv-row">
+      <div><div class="sv-label">Embedding Provider</div><div class="sv-desc">Generates vector representations of your data</div></div>
+      <select class="sv-select">
+        <option>Voyage AI (voyage-3)</option>
+        <option>OpenAI (text-embedding-3-large)</option>
+        <option>Gemini Embedding</option>
+        <option>Mistral Embed</option>
+        <option>Local (node-llama)</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Vector Backend</div><div class="sv-desc">Local storage engine for semantic search</div></div>
+      <select class="sv-select">
+        <option>SQLite-vec (Default)</option>
+        <option>LanceDB</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Hybrid Search</div><div class="sv-desc">Combine vector + full-text search with MMR ranking</div></div>
+      <button class="sv-toggle on"></button>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Temporal Decay</div><div class="sv-desc">Favor recent results in search scoring</div></div>
+      <button class="sv-toggle on"></button>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Query Expansion</div><div class="sv-desc">Automatically broaden search queries for better recall</div></div>
+      <button class="sv-toggle on"></button>
+    </div>
+  </div>
+</div>
+
+<div class="sv-section">
+  <div class="sv-section-title"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Privacy &amp; Security</div>
+  <div class="sv-card">
+    <div class="sv-row">
+      <div><div class="sv-label">Data Locality</div><div class="sv-desc">All data stays on your device — never sent externally</div></div>
+      <span class="sv-badge local">100% Local</span>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">End-to-End Encryption</div><div class="sv-desc">AES-256-GCM for all stored data</div></div>
+      <button class="sv-toggle on"></button>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">LLM Data Sharing</div><div class="sv-desc">Never send personal data to LLM providers for training</div></div>
+      <button class="sv-toggle"></button>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Local Processing First</div><div class="sv-desc">Use on-device models when possible before cloud API</div></div>
+      <button class="sv-toggle on"></button>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Vault Access Token</div><div class="sv-desc">Gateway auth for OpenClaw ↔ Vault communication</div></div>
+      <span style="font-size:11px;color:#555;font-family:monospace">••••••••••••8f3a</span>
+    </div>
+  </div>
+</div>
+
+<div class="sv-section">
+  <div class="sv-section-title"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg> Storage</div>
+  <div class="sv-card">
+    <div class="sv-row">
+      <div><div class="sv-label">Gateway Mode</div></div>
+      <select class="sv-select">
+        <option>Local (localhost:18789)</option>
+        <option>Remote Gateway</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Memory Plugin</div></div>
+      <select class="sv-select">
+        <option>memory-core (SQLite-vec)</option>
+        <option>memory-lancedb</option>
+      </select>
+    </div>
+    <div class="sv-row">
+      <div><div class="sv-label">Session Storage</div><div class="sv-desc">~/.openclaw/sessions/</div></div>
+      <span class="sv-badge local">On Device</span>
+    </div>
+  </div>
+</div>
+</div><div class="intel-view" id="vault-intel-view" style="display: none;">
+<h2><svg style="stroke: rgb(245, 166, 35); width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" width="20" height="20"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg> Vault Intelligence</h2>
+<p class="iv-sub">AI processing pipeline for your data — everything stays local</p>
+
+<div class="intel-stats">
+  <div class="intel-stat">
+    <div class="ist-val">0</div>
+    <div class="ist-label">Items Indexed</div>
+    <div class="ist-sub">Ready for semantic search</div>
+  </div>
+  <div class="intel-stat">
+    <div class="ist-val">0</div>
+    <div class="ist-label">Faces Detected</div>
+    <div class="ist-sub">Auto-grouped by identity</div>
+  </div>
+  <div class="intel-stat">
+    <div class="ist-val">0</div>
+    <div class="ist-label">Documents OCR'd</div>
+    <div class="ist-sub">Full text extracted</div>
+  </div>
+  <div class="intel-stat">
+    <div class="ist-val">0 MB</div>
+    <div class="ist-label">Vector Database</div>
+    <div class="ist-sub">SQLite-vec embeddings</div>
+  </div>
+</div>
+
+<div class="sv-section-title"><svg style="stroke: rgb(245, 166, 35); width: 14px; height: 14px;" viewBox="0 0 24 24" width="14" height="14"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Processing Pipeline</div>
+<div class="intel-pipeline">
+  <div class="intel-step">
+    <div class="is-num">1</div>
+    <div class="is-info">
+      <div class="is-title">Ingest &amp; Encrypt</div>
+      <div class="is-desc">Files imported, encrypted with AES-256-GCM, stored locally</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+  <div class="intel-step">
+    <div class="is-num">2</div>
+    <div class="is-info">
+      <div class="is-title">Vision Analysis</div>
+      <div class="is-desc">Face detection, scene classification, object recognition, EXIF extraction</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+  <div class="intel-step">
+    <div class="is-num">3</div>
+    <div class="is-info">
+      <div class="is-title">Document Understanding</div>
+      <div class="is-desc">OCR, text extraction, layout analysis, table detection</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+  <div class="intel-step">
+    <div class="is-num">4</div>
+    <div class="is-info">
+      <div class="is-title">Embedding Generation</div>
+      <div class="is-desc">Voyage AI vectors for semantic search, batch processing with dedup</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+  <div class="intel-step">
+    <div class="is-num">5</div>
+    <div class="is-info">
+      <div class="is-title">Memory Sync</div>
+      <div class="is-desc">Index to SQLite-vec / LanceDB, hybrid FTS+vector, temporal decay scoring</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+  <div class="intel-step">
+    <div class="is-num">6</div>
+    <div class="is-info">
+      <div class="is-title">OpenClaw Knowledge</div>
+      <div class="is-desc">Full context available — your AI knows everything in the Vault</div>
+    </div>
+    <div class="is-status ready">Ready</div>
+  </div>
+</div>
+
+<div class="sv-section-title"><svg style="stroke: rgb(245, 166, 35); width: 14px; height: 14px;" viewBox="0 0 24 24" width="14" height="14"><path d="M12 3v12"></path><polyline points="8 11 12 15 16 11"></polyline><path d="M20 21H4"></path></svg> Import Sources</div>
+<div class="import-flow">
+  <div class="import-source">
+    <div class="ims-icon" style="background:rgba(255,255,255,0.05)"><svg viewBox="0 0 24 24" width="16" height="16" stroke="#999" stroke-width="1.8" fill="none"><path d="M17 2H7a5 5 0 00-5 5v10a5 5 0 005 5h10a5 5 0 005-5V7a5 5 0 00-5-5z"></path><circle cx="12" cy="12" r="4.5"></circle></svg></div>
+    <div class="ims-info"><div class="ims-name">Apple Photos</div><div class="ims-desc">Import your entire library — faces, albums, live photos</div></div>
+    <div class="ims-arrow">→</div>
+  </div>
+  <div class="import-source">
+    <div class="ims-icon" style="background:rgba(255,255,255,0.05)"><svg viewBox="0 0 24 24" width="16" height="16" stroke="#999" stroke-width="1.8" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg></div>
+    <div class="ims-info"><div class="ims-name">iMessage</div><div class="ims-desc">Chat history, attachments, contacts — fully encrypted</div></div>
+    <div class="ims-arrow">→</div>
+  </div>
+  <div class="import-source">
+    <div class="ims-icon" style="background:rgba(255,255,255,0.05)"><svg viewBox="0 0 24 24" width="16" height="16" stroke="#999" stroke-width="1.8" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+    <div class="ims-info"><div class="ims-name">Files &amp; Documents</div><div class="ims-desc">PDFs, scans, contracts — OCR and full-text indexing</div></div>
+    <div class="ims-arrow">→</div>
+  </div>
+  <div class="import-source">
+    <div class="ims-icon" style="background:rgba(255,255,255,0.05)"><svg viewBox="0 0 24 24" width="16" height="16" stroke="#999" stroke-width="1.8" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg></div>
+    <div class="ims-info"><div class="ims-name">Google Takeout</div><div class="ims-desc">Drive, Photos, Contacts — escape and own your data</div></div>
+    <div class="ims-arrow">→</div>
+  </div>
+</div>
+</div><div id="vault-secure-view" style="display: none; height: 100%;">
+<div id="v-secure-chat">
+  <div id="sc-sidebar">
+    <div id="sc-sidebar-header">
+      <h3>Secure Chat</h3>
+      <div class="sc-header-actions">
+        <button class="sc-header-btn" title="New Group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+        <button class="sc-header-btn" title="New Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+      </div>
+    </div>
+    <div id="sc-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+      <input type="text" placeholder="Search conversations...">
+    </div>
+    <div class="sc-tabs">
+      <button class="sc-tab active" data-tab="all">All</button>
+      <button class="sc-tab" data-tab="people">People</button>
+      <button class="sc-tab" data-tab="groups">Groups</button>
+      <button class="sc-tab" data-tab="agents">Agents</button>
+    </div>
+    <div id="sc-conv-list"><div class="sc-conv-item" data-conv="c1">
+      <div class="sc-avatar human">MS<div class="sc-online-dot"></div></div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">Maria Schneider </div>
+        <div class="sc-conv-preview">Hast du die Dokumente schon hochgeladen?</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">14:32</span>
+        
+      </div>
+    </div><div class="sc-conv-item active" data-conv="c2">
+      <div class="sc-avatar group">PA</div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">Project Alpha <span class="sc-group-badge">4</span></div>
+        <div class="sc-conv-preview">OpenClaw: Ich habe 3 relevante Papers gefunden...</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">13:45</span>
+        
+      </div>
+    </div><div class="sc-conv-item" data-conv="c3">
+      <div class="sc-avatar human">TK</div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">Tom Kramer </div>
+        <div class="sc-conv-preview">Bis morgen dann!</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">11:20</span>
+        
+      </div>
+    </div><div class="sc-conv-item" data-conv="c4">
+      <div class="sc-avatar agent">OC<div class="sc-online-dot"></div></div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">OpenClaw Assistant <span class="sc-agent-badge">AGENT</span></div>
+        <div class="sc-conv-preview">Deine wöchentliche Zusammenfassung ist fertig.</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">09:00</span>
+        
+      </div>
+    </div><div class="sc-conv-item" data-conv="c5">
+      <div class="sc-avatar group">Fa</div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">Family <span class="sc-group-badge">4</span></div>
+        <div class="sc-conv-preview">Lisa: Wann treffen wir uns Sonntag?</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">Gestern</span>
+        
+      </div>
+    </div><div class="sc-conv-item" data-conv="c6">
+      <div class="sc-avatar human">DW</div>
+      <div class="sc-conv-info">
+        <div class="sc-conv-name">Dr. Weber </div>
+        <div class="sc-conv-preview">Die Ergebnisse sind da.</div>
+      </div>
+      <div class="sc-conv-meta">
+        <span class="sc-conv-time">Mo</span>
+        
+      </div>
+    </div></div>
+  </div>
+  <div id="sc-chat-area">
+    <div id="sc-chat-header"><div class="sc-chat-header-left">
+    <div class="sc-avatar group" style="width:36px;height:36px;font-size:13px">PA</div>
+    <div class="sc-chat-header-info">
+      <h4>Project Alpha</h4>
+      <span>You, Maria S., Tom K., OpenClaw Agent</span>
+    </div>
+  </div>
+  <div class="sc-chat-header-actions">
+    <button class="sc-action-btn call-btn" title="Voice Call" data-action="call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></button>
+    <button class="sc-action-btn video-btn" title="Video Call" data-action="video"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
+    <button class="sc-action-btn" title="Add Agent" data-action="add-agent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg></button>
+    <button class="sc-action-btn" title="Info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></button>
+  </div></div>
+    <div class="sc-agent-invite" id="sc-agent-invite" style="display: none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+      <span>Add an OpenClaw Agent to assist in this conversation</span>
+      <button>Invite Agent</button>
+    </div>
+    <div id="sc-messages"><div class="sc-date-divider">Today</div><div class="sc-msg received">
+      <div class="sc-msg-avatar human">To</div>
+      <div class="sc-msg-bubble">
+        <div class="sc-msg-sender">Tom</div>
+        <div>Team, wir brauchen die Research-Ergebnisse bis Freitag.</div>
+        <div class="sc-thread-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> 5 replies</div><div class="sc-msg-time">13:20 </div>
+      </div>
+    </div><div class="sc-msg received">
+      <div class="sc-msg-avatar human">Ma</div>
+      <div class="sc-msg-bubble">
+        <div class="sc-msg-sender">Maria</div>
+        <div>Ich kümmere mich um den Market Analysis Teil.</div>
+        <div class="sc-msg-time">13:22 </div>
+      </div>
+    </div><div class="sc-msg sent">
+      
+      <div class="sc-msg-bubble">
+        
+        <div>@OpenClaw kannst du nach aktuellen Papers zum Thema AI-Privacy suchen?</div>
+        <div class="sc-msg-time">13:30 <span class="sc-msg-status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 7 17l-5-5"></path><path d="m22 10-9.5 9.5L10 17"></path></svg></span></div>
+      </div>
+    </div><div class="sc-msg received agent-msg">
+      <div class="sc-msg-avatar agent">Op</div>
+      <div class="sc-msg-bubble">
+        <div class="sc-msg-sender">OpenClaw</div>
+        <div>Klar! Ich durchsuche gerade PubMed, ArXiv und IEEE. Einen Moment...</div>
+        <div class="sc-msg-time">13:31 </div>
+      </div>
+    </div><div class="sc-msg received agent-msg">
+      <div class="sc-msg-avatar agent">Op</div>
+      <div class="sc-msg-bubble">
+        <div class="sc-msg-sender">OpenClaw</div>
+        <div>Ich habe 3 relevante Papers gefunden:<br><br>1. "Privacy-Preserving AI" (2025) — Stanford<br>2. "Federated Learning at Scale" (2025) — Google<br>3. "Local-First AI Architectures" (2024) — MIT<br><br>Soll ich Zusammenfassungen erstellen?</div>
+        <div class="sc-thread-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> 5 replies</div><div class="sc-msg-time">13:45 </div>
+      </div>
+    </div></div>
+    <div class="sc-e2e-badge" style="text-align:center;justify-content:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.02)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> End-to-end encrypted
+    </div>
+    <div id="sc-input-area">
+      <div class="sc-input-actions">
+        <button class="sc-input-btn" title="Attach file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+      </div>
+      <textarea id="sc-msg-input" placeholder="Type a message..." rows="1" style="height: auto;"></textarea>
+      <div class="sc-input-actions">
+        <button class="sc-input-btn" title="Voice message"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></button>
+      </div>
+      <button class="sc-send-btn" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+    </div>
+  
+<div id="sc-thread-panel" class="">
+  <div class="thread-header">
+    <h4>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      Thread
+    </h4>
+    <button class="thread-close-btn" id="thread-close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+  </div>
+  <div class="thread-origin" id="thread-origin">
+    <div class="thread-origin-sender">
+      <div class="thread-origin-avatar human">To</div>
+      <span class="thread-origin-name ">Tom</span>
+      <span class="thread-origin-time">13:20</span>
+    </div>
+    <div class="thread-origin-text">Team, wir brauchen die Research-Ergebnisse bis Freitag.</div>
+  </div>
+  <div class="thread-reply-count" id="thread-reply-count">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
+    <span id="thread-count-text">5 replies</span>
+  </div>
+  <div class="thread-replies" id="thread-replies"><div class="thread-reply">
+      <div class="thread-reply-avatar human">MS</div>
+      <div class="thread-reply-body">
+        <div class="thread-reply-meta">
+          <span class="thread-reply-name ">Maria</span>
+          <span class="thread-reply-timestamp">13:21</span>
+        </div>
+        <div class="thread-reply-text">Ich übernehme den Market Analysis Teil.</div>
+      </div>
+    </div><div class="thread-reply">
+      <div class="thread-reply-avatar self">Y</div>
+      <div class="thread-reply-body">
+        <div class="thread-reply-meta">
+          <span class="thread-reply-name self-name">You</span>
+          <span class="thread-reply-timestamp">13:23</span>
+        </div>
+        <div class="thread-reply-text">Ich kümmere mich um die Technical Review.</div>
+      </div>
+    </div><div class="thread-reply">
+      <div class="thread-reply-avatar human">TK</div>
+      <div class="thread-reply-body">
+        <div class="thread-reply-meta">
+          <span class="thread-reply-name ">Tom</span>
+          <span class="thread-reply-timestamp">13:24</span>
+        </div>
+        <div class="thread-reply-text">Perfekt. Ich mach das Executive Summary.</div>
+      </div>
+    </div><div class="thread-reply">
+      <div class="thread-reply-avatar agent">OC</div>
+      <div class="thread-reply-body">
+        <div class="thread-reply-meta">
+          <span class="thread-reply-name agent-name">OpenClaw</span>
+          <span class="thread-reply-timestamp">13:25</span>
+        </div>
+        <div class="thread-reply-text agent-text">Ich kann bei allen drei Bereichen unterstützen. Soll ich anfangen, relevante Quellen zu sammeln?</div>
+      </div>
+    </div><div class="thread-reply">
+      <div class="thread-reply-avatar self">Y</div>
+      <div class="thread-reply-body">
+        <div class="thread-reply-meta">
+          <span class="thread-reply-name self-name">You</span>
+          <span class="thread-reply-timestamp">13:26</span>
+        </div>
+        <div class="thread-reply-text">Ja bitte, fokussier dich auf AI-Privacy Papers.</div>
+      </div>
+    </div></div>
+  <div class="thread-input-area">
+    <textarea class="thread-input" id="thread-input" placeholder="Reply in thread..." rows="1" style="height: auto;"></textarea>
+    <button class="thread-send-btn" id="thread-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+  </div>
+</div></div>
+</div></div><div id="vault-calendar-view" style="display: none; height: 100%;">
+<div id="v-calendar">
+  <div id="cal-header">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="cal-prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+      <h3 id="cal-month-title">February 2026</h3>
+      <button class="cal-nav-btn" id="cal-next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+    </div>
+    <div class="cal-header-actions">
+      <button class="cal-today-btn" id="cal-today-btn">Today</button>
+      <button class="cal-add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Event</button>
+    </div>
+  </div>
+  <div id="cal-body">
+    <div id="cal-grid-wrap">
+      <div class="cal-weekdays">
+        <div class="cal-weekday">Mon</div>
+        <div class="cal-weekday">Tue</div>
+        <div class="cal-weekday">Wed</div>
+        <div class="cal-weekday">Thu</div>
+        <div class="cal-weekday">Fri</div>
+        <div class="cal-weekday">Sat</div>
+        <div class="cal-weekday">Sun</div>
+      </div>
+      <div class="cal-days" id="cal-days"><div class="cal-day other-month"><span class="cal-day-num">26</span></div><div class="cal-day other-month"><span class="cal-day-num">27</span></div><div class="cal-day other-month"><span class="cal-day-num">28</span></div><div class="cal-day other-month"><span class="cal-day-num">29</span></div><div class="cal-day other-month"><span class="cal-day-num">30</span></div><div class="cal-day other-month"><span class="cal-day-num">31</span></div><div class="cal-day" data-day="1">
+      <span class="cal-day-num">1</span>
+      
+    </div><div class="cal-day" data-day="2">
+      <span class="cal-day-num">2</span>
+      
+    </div><div class="cal-day" data-day="3">
+      <span class="cal-day-num">3</span>
+      <div class="cal-event meeting" title="09:00 Team Standup">09:00 Team Standup</div>
+    </div><div class="cal-day" data-day="4">
+      <span class="cal-day-num">4</span>
+      
+    </div><div class="cal-day" data-day="5">
+      <span class="cal-day-num">5</span>
+      <div class="cal-event call" title="14:00 Call with Maria">14:00 Call with Maria</div>
+    </div><div class="cal-day" data-day="6">
+      <span class="cal-day-num">6</span>
+      
+    </div><div class="cal-day" data-day="7">
+      <span class="cal-day-num">7</span>
+      <div class="cal-event meeting" title="10:00 Sprint Review">10:00 Sprint Review</div><div class="cal-event task" title="15:00 Design Review">15:00 Design Review</div>
+    </div><div class="cal-day" data-day="8">
+      <span class="cal-day-num">8</span>
+      
+    </div><div class="cal-day" data-day="9">
+      <span class="cal-day-num">9</span>
+      
+    </div><div class="cal-day" data-day="10">
+      <span class="cal-day-num">10</span>
+      <div class="cal-event reminder" title="11:00 Doctor">11:00 Doctor</div>
+    </div><div class="cal-day" data-day="11">
+      <span class="cal-day-num">11</span>
+      
+    </div><div class="cal-day" data-day="12">
+      <span class="cal-day-num">12</span>
+      <div class="cal-event task" title="18:00 Project Deadline">18:00 Project Deadline</div>
+    </div><div class="cal-day" data-day="13">
+      <span class="cal-day-num">13</span>
+      
+    </div><div class="cal-day" data-day="14">
+      <span class="cal-day-num">14</span>
+      <div class="cal-event meeting" title="12:00 Team Lunch">12:00 Team Lunch</div>
+    </div><div class="cal-day" data-day="15">
+      <span class="cal-day-num">15</span>
+      
+    </div><div class="cal-day" data-day="16">
+      <span class="cal-day-num">16</span>
+      
+    </div><div class="cal-day" data-day="17">
+      <span class="cal-day-num">17</span>
+      
+    </div><div class="cal-day" data-day="18">
+      <span class="cal-day-num">18</span>
+      <div class="cal-event call" title="16:00 Client Call">16:00 Client Call</div>
+    </div><div class="cal-day" data-day="19">
+      <span class="cal-day-num">19</span>
+      
+    </div><div class="cal-day" data-day="20">
+      <span class="cal-day-num">20</span>
+      <div class="cal-event meeting" title="09:00 Workshop">09:00 Workshop</div>
+    </div><div class="cal-day" data-day="21">
+      <span class="cal-day-num">21</span>
+      
+    </div><div class="cal-day" data-day="22">
+      <span class="cal-day-num">22</span>
+      <div class="cal-event call" title="14:00 Review + Agent">14:00 Review + Agent</div>
+    </div><div class="cal-day" data-day="23">
+      <span class="cal-day-num">23</span>
+      
+    </div><div class="cal-day today" data-day="24">
+      <span class="cal-day-num">24</span>
+      <div class="cal-event meeting" title="10:00 Today">10:00 Today</div>
+    </div><div class="cal-day" data-day="25">
+      <span class="cal-day-num">25</span>
+      <div class="cal-event meeting" title="09:00 Sprint Planning">09:00 Sprint Planning</div>
+    </div><div class="cal-day" data-day="26">
+      <span class="cal-day-num">26</span>
+      
+    </div><div class="cal-day" data-day="27">
+      <span class="cal-day-num">27</span>
+      <div class="cal-event task" title="14:00 Demo Day">14:00 Demo Day</div>
+    </div><div class="cal-day" data-day="28">
+      <span class="cal-day-num">28</span>
+      
+    </div><div class="cal-day other-month"><span class="cal-day-num">1</span></div></div>
+    </div>
+    <div id="cal-sidebar">
+      <div id="cal-sidebar-header">
+        <h4>Today's Schedule</h4>
+        <span>Tuesday, February 24</span>
+      </div>
+      <div class="cal-upcoming-list">
+        
+          <div class="cal-upcoming-item">
+            <div class="cal-upcoming-time">09:00 - 09:30</div>
+            <div class="cal-upcoming-title">Team Standup</div>
+            <div class="cal-upcoming-desc">Daily sync with engineering</div>
+            <div class="cal-upcoming-participants">
+              <div class="cal-participant human">MS</div><div class="cal-participant human">TK</div><div class="cal-participant agent">OC</div>
+            </div>
+          </div>
+        
+          <div class="cal-upcoming-item">
+            <div class="cal-upcoming-time">10:00 - 11:00</div>
+            <div class="cal-upcoming-title">Sprint Review</div>
+            <div class="cal-upcoming-desc">Review sprint deliverables</div>
+            <div class="cal-upcoming-participants">
+              <div class="cal-participant human">MS</div><div class="cal-participant human">TK</div>
+            </div>
+          </div>
+        
+          <div class="cal-upcoming-item">
+            <div class="cal-upcoming-time">14:00 - 14:30</div>
+            <div class="cal-upcoming-title">Call with Maria</div>
+            <div class="cal-upcoming-desc">Discuss Vault integration specs</div>
+            <div class="cal-upcoming-participants">
+              <div class="cal-participant human">MS</div>
+            </div>
+          </div>
+        
+          <div class="cal-upcoming-item">
+            <div class="cal-upcoming-time">16:00 - 17:00</div>
+            <div class="cal-upcoming-title">Client Demo</div>
+            <div class="cal-upcoming-desc">Show new features to client</div>
+            <div class="cal-upcoming-participants">
+              <div class="cal-participant human">MS</div><div class="cal-participant human">TK</div><div class="cal-participant agent">OC</div>
+            </div>
+          </div>
+        
+      </div>
+      <div class="cal-agent-suggest">
+        <h5><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg> OpenClaw Suggestion</h5>
+        <p>Based on your schedule, you have a 2-hour free block from 11:00-13:00. Want me to schedule focused work time or a lunch break?</p>
+      </div>
+    </div>
+  </div>
+</div></div><div id="vault-files-view" style="height: 100%; overflow-y: auto;">
+<div style="padding:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <h2 style="font-size:22px;font-weight:600;color:#fff;margin:0 0 4px 0">Files</h2>
+      <p style="font-size:13px;color:rgba(255,255,255,0.35);margin:0">Encrypted file storage — 100% local</p>
+    </div>
+    <button style="padding:8px 16px;border-radius:10px;background:#F5A623;border:none;color:#080808;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Upload
+    </button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px;">
+    
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#F5A62315;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Documents</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">24 files · 48 MB</div>
+      </div>
+    
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#7B61FF15;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B61FF" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Photos</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">156 files · 1.2 GB</div>
+      </div>
+    
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#00D68F15;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00D68F" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Videos</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">8 files · 3.4 GB</div>
+      </div>
+    
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#FF6B6B15;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Audio</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">12 files · 89 MB</div>
+      </div>
+    
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#4ECDC415;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ECDC4" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Archives</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">3 files · 256 MB</div>
+      </div>
+    
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:#45B7D115;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#45B7D1" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Shared</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25)">5 files · 18 MB</div>
+      </div>
+    
+  </div>
+  <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:14px;font-weight:500;color:#fff">Recent Files</span>
+      <span style="font-size:12px;color:rgba(245,166,35,0.6);cursor:pointer">View all</span>
+    </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">PDF</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">project-specs.pdf</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">2.4 MB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">2 hours ago</div>
+      </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">FIG</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">vault-design.fig</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">8.1 MB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">Yesterday</div>
+      </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">MD</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">meeting-notes.md</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">14 KB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">Yesterday</div>
+      </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">JPG</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">photo-2024-001.jpg</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">3.2 MB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">3 days ago</div>
+      </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">XLS</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">budget-q4.xlsx</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">156 KB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">Last week</div>
+      </div>
+    
+      <div style="display: flex; align-items: center; padding: 10px 0px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); gap: 12px; cursor: pointer; background: transparent;" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">KEY</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">presentation-v2.key</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">24 MB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">Last week</div>
+      </div>
+    
+      <div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03);gap:12px;cursor:pointer" onmouseenter="this.style.background='rgba(245,166,35,0.03)'" onmouseleave="this.style.background='transparent'">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,166,35,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:9px;font-weight:700;color:#F5A623;letter-spacing:0.3px">DOC</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">contract-draft.docx</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.2)">89 KB</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.15);flex-shrink:0">2 weeks ago</div>
+      </div>
+    
+  </div>
+</div></div></div>
+  </div>
+
+  <!-- ===== DIVIDER ===== -->
+  <div id="dp-divider"></div>
+
+  <!-- ===== OPENCLAW PANEL (RIGHT) ===== -->
+  <div id="dp-claw" class="dp-panel recessive">
+    <div class="dp-panel-nav" id="claw-nav">
+  <button class="dp-nav-btn active" data-c="chat" title="Chat"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg></button>
+  <button class="dp-nav-btn" data-c="explore" title="Explore"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button>
+  <div style="flex:1"></div>
+  <button class="dp-nav-btn" data-c="settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg></button>
+</div>
+    <div class="dp-panel-content" id="claw-content">
+      <!-- OpenClaw Full View -->
+      <div class="claw-full" id="claw-full-view" style="display: none;">
+        <div class="claw-header">
+          <h2><span class="ch-orb"><svg style="stroke:#080808" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-4 12.73V22l4-2 4 2v-7.27A7 7 0 0012 2z"></path></svg></span> OpenClaw</h2>
+          <div class="ch-sub">0711 Vault Edition · Running locally on your hardware</div>
+        </div>
+        <div class="vault-context">
+  <span class="vc-dot"></span>
+  <span class="vc-text">Vault Connected — Full context access</span>
+  <span class="vc-detail">0 items indexed · SQLite-vec · Hybrid Search active</span>
+</div><div class="claw-chat">
+          <div class="claw-messages">
+            <div class="claw-welcome">
+  <div class="cw-title">What do you need?</div>
+  <div class="cw-sub">I have full access to your Vault — photos, documents, messages, and memories</div>
+  <div class="claw-chips">
+    <div class="claw-chip">Show me photos from last summer</div>
+    <div class="claw-chip">Find my insurance documents</div>
+    <div class="claw-chip">Who appears most in my photos?</div>
+    <div class="claw-chip">Summarize my recent documents</div>
+    <div class="claw-chip">Search my iMessages</div>
+  </div>
+</div>
+          </div>
+        </div>
+        <div class="claw-features">
+          <div class="claw-feat">
+            <div class="cf-icon" style="background:rgba(245,166,35,0.1)"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+            <div class="cf-title">52 Skills</div>
+            <div class="cf-desc">Weather, Notes, GitHub, Notion, Spotify &amp; more</div>
+          </div>
+          <div class="claw-feat">
+            <div class="cf-icon" style="background:rgba(59,130,246,0.1)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg></div>
+            <div class="cf-title">Agents</div>
+            <div class="cf-desc">Autonomous multi-step task execution</div>
+          </div>
+          <div class="claw-feat">
+            <div class="cf-icon" style="background:rgba(168,85,247,0.1)"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></div>
+            <div class="cf-title">Memory</div>
+            <div class="cf-desc">Vector search across your vault files</div>
+          </div>
+        </div>
+        <div class="claw-input-wrap">
+          <div class="claw-input-bar">
+            <input type="text" placeholder="Ask about your photos, documents, or memories...">
+            <button class="claw-input-btn"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg></button>
+            <button class="claw-input-btn"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path><path d="M19 10v2a7 7 0 01-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+            <button class="claw-input-btn send"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- OpenClaw Summary View (when recessive - chat only) -->
+      <div class="claw-summary" id="claw-summary-view" style="">
+        <div class="claw-sum-header">
+          <h3><span class="csh-dot"></span> OpenClaw</h3>
+        </div>
+        <div class="claw-sum-messages">
+          <div class="claw-sum-empty">Ask me anything about your vault...</div>
+        </div>
+        <div class="claw-sum-input">
+          <div class="claw-sum-input-bar">
+            <input type="text" placeholder="Quick message...">
+            <button class="claw-sum-send"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dp-bottom">
+  <span><span class="dpb-dot"></span> OpenClaw H200V</span>
+  <span>Running Locally</span>
+  <span>End-to-end Encrypted</span>
+  <span>100% Local · No data sent externally</span>
+</div>
+</div>
+<script>
+// ============================================================
+// 0711 Vault × OpenClaw — Interactive Prototype
+// Generated: 2026-02-24T01:08:51.509Z
+// ============================================================
+console.log('0711 Vault × OpenClaw UI Prototype loaded');
+console.log('Design System: #080808 (black) + #F5A623 (amber)');
+
+// Navigation wiring
+(function() {
+  const vaultNav = document.getElementById('vault-nav');
+  if (!vaultNav) return;
+  
+  const allViews = ['vault-full-view','vault-summary-view','vault-settings-view','vault-intel-view','vault-secure-view','vault-calendar-view','vault-files-view'];
+  const navViewMap = {
+    'Vault': 'vault-full-view',
+    'Files': 'vault-files-view',
+    'Calendar': 'vault-calendar-view',
+    'Secure': 'vault-secure-view',
+    'Settings': 'vault-settings-view',
+  };
+  
+  function switchView(viewId) {
+    allViews.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const target = document.getElementById(viewId);
+    if (target) {
+      target.style.display = '';
+      if (viewId === 'vault-secure-view' || viewId === 'vault-calendar-view') {
+        target.style.height = '100%';
+      }
+    }
+  }
+  
+  vaultNav.querySelectorAll('button').forEach(btn => {
+    const title = btn.getAttribute('title');
+    const viewId = navViewMap[title];
+    if (!viewId) return;
+    btn.addEventListener('click', () => {
+      vaultNav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      switchView(viewId);
+    });
+  });
+})();
+
+// ============================================================
+// VAULTCLAW API LAYER — Login + Moltbot Chat
+// ============================================================
+const API = window.VAULTCLAW_API || '/api';
+
+const VaultAuth = {
+  getToken() { return localStorage.getItem('vc_token'); },
+  setToken(t) { localStorage.setItem('vc_token', t); },
+  clear() { localStorage.removeItem('vc_token'); },
+  headers() {
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.getToken() };
+  }
+};
+
+function escHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// --- Login ---
+async function doLogin(email, password) {
+  const resp = await fetch(API + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(txt);
+  }
+  const data = await resp.json();
+  VaultAuth.setToken(data.access_token || data.token);
+  return data;
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  try {
+    await doLogin(email, pw);
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('dp-shell').style.display = '';
+    initMoltbot();
+  } catch (e) {
+    errEl.textContent = 'Login failed — check your credentials.';
+    errEl.style.display = 'block';
+  }
+});
+
+// Enter key on password field triggers login
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+document.getElementById('login-email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-password').focus();
+});
+
+// --- Moltbot Chat ---
+let moltConvId = null;
+let moltStreaming = false;
+
+function appendBubble(container, html, align, bg, border) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin:8px 0;text-align:' + align;
+  const bubble = document.createElement('span');
+  bubble.style.cssText = 'display:inline-block;max-width:85%;text-align:left;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5;background:' + bg + ';color:#e8e8e8;' + (border ? 'border:1px solid ' + border + ';' : '');
+  bubble.innerHTML = html;
+  wrap.appendChild(bubble);
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+async function sendChat(msg, msgContainer, input) {
+  if (moltStreaming || !msg.trim()) return;
+  moltStreaming = true;
+
+  // User bubble
+  appendBubble(msgContainer, escHtml(msg), 'right', '#F5A623', null);
+  msgContainer.lastChild.querySelector('span').style.color = '#080808';
+  input.value = '';
+
+  // AI bubble (streaming target)
+  const aiBubble = appendBubble(msgContainer, '<span style="opacity:0.4">Moltbot is thinking...</span>', 'left', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.06)');
+
+  try {
+    const resp = await fetch(API + '/assistant/chat/stream', {
+      method: 'POST',
+      headers: VaultAuth.headers(),
+      body: JSON.stringify({ message: msg, conversation_id: moltConvId, include_context: true })
+    });
+
+    if (resp.status === 401) {
+      VaultAuth.clear();
+      location.reload();
+      return;
+    }
+
+    if (!resp.ok) {
+      // Fallback to non-streaming endpoint
+      const resp2 = await fetch(API + '/assistant/chat', {
+        method: 'POST',
+        headers: VaultAuth.headers(),
+        body: JSON.stringify({ message: msg, conversation_id: moltConvId, include_context: true })
+      });
+      if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+      const data = await resp2.json();
+      aiBubble.textContent = data.response || data.message || 'No response';
+      if (data.conversation_id) moltConvId = data.conversation_id;
+      return;
+    }
+
+    // SSE streaming
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulated = '';
+    aiBubble.textContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      for (const line of chunk.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const p = JSON.parse(line.slice(6));
+          if (p.content) { accumulated += p.content; aiBubble.textContent = accumulated; msgContainer.scrollTop = msgContainer.scrollHeight; }
+          if (p.conversation_id) moltConvId = p.conversation_id;
+          if (p.done) break;
+          if (p.error) { aiBubble.textContent = p.error; break; }
+        } catch (e) {}
+      }
+    }
+    if (!accumulated) aiBubble.textContent = 'No response received.';
+  } catch (e) {
+    aiBubble.textContent = 'Connection error: ' + e.message;
+  } finally {
+    moltStreaming = false;
+  }
+}
+
+function initMoltbot() {
+  // Wire full-view chat (right panel expanded)
+  const fullInput = document.querySelector('#claw-full-view .claw-input-bar input');
+  const fullSend = document.querySelector('#claw-full-view .claw-input-btn.send');
+  const fullMsgs = document.querySelector('#claw-full-view .claw-messages');
+
+  if (fullSend && fullInput && fullMsgs) {
+    fullSend.addEventListener('click', () => sendChat(fullInput.value, fullMsgs, fullInput));
+    fullInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(fullInput.value, fullMsgs, fullInput); } });
+  }
+
+  // Wire summary-view chat (right panel compact)
+  const sumInput = document.querySelector('#claw-summary-view .claw-sum-input-bar input');
+  const sumSend = document.querySelector('#claw-summary-view .claw-sum-send');
+  const sumMsgs = document.querySelector('#claw-summary-view .claw-sum-messages');
+
+  if (sumSend && sumInput && sumMsgs) {
+    sumSend.addEventListener('click', () => sendChat(sumInput.value, sumMsgs, sumInput));
+    sumInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(sumInput.value, sumMsgs, sumInput); } });
+  }
+
+  // Wire quick chips
+  document.querySelectorAll('.claw-chip').forEach(chip => {
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', () => {
+      if (fullInput && fullMsgs) {
+        fullInput.value = chip.textContent;
+        sendChat(chip.textContent, fullMsgs, fullInput);
+      }
+    });
+  });
+
+  // Wire sign-out
+  document.querySelector('.dp-signout').addEventListener('click', () => {
+    VaultAuth.clear();
+    location.reload();
+  });
+}
+
+// --- Bootstrap: auto-login if token exists ---
+(async function() {
+  const token = VaultAuth.getToken();
+  if (token) {
+    try {
+      const resp = await fetch(API + '/health', { headers: VaultAuth.headers() });
+      if (resp.ok) {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('dp-shell').style.display = '';
+        initMoltbot();
+        return;
+      }
+    } catch (e) {}
+    // Token invalid — clear and show login
+    VaultAuth.clear();
+  }
+  // Show login (default state)
+})();
+</script>
+</body>
+</html>
