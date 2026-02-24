@@ -4825,8 +4825,9 @@ body.vc-light [style*="background: #0a0a0a"] {
   </div>
 </div>
 
-<!-- Hidden file input -->
-<input type="file" id="fm-file-input" multiple style="display:none" onchange="if(this.files.length)fmUploadFiles(this.files);this.value=''">
+<!-- Hidden file input - moved to always be in DOM -->
+<!-- Note: This input must NOT be display:none when clicked in some browsers -->
+<input type="file" id="fm-file-input" multiple style="position:absolute;left:-9999px;opacity:0" onchange="if(this.files.length)fmUploadFiles(this.files);this.value=''" accept="image/*,application/pdf,.doc,.docx,.txt,.md,.json,.csv,.xlsx">
 
 <!-- Drag & Drop Overlay -->
 <div class="fm-drop-overlay" id="fm-drop-overlay">
@@ -7700,7 +7701,15 @@ function fmContextMenu(event, type, id) {
 }
 
 function fmUpload() {
-  document.getElementById('fm-file-input')?.click();
+  console.log('fmUpload called - triggering file picker');
+  const fileInput = document.getElementById('fm-file-input');
+  if (!fileInput) {
+    console.error('File input element not found!');
+    showToast('Upload error: file input not found', 'error');
+    return;
+  }
+  // Trigger file picker
+  fileInput.click();
 }
 
 async function fmUploadFiles(files) {
