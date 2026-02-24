@@ -2529,12 +2529,12 @@ body > div#root > div.min-h-screen > footer,
       <div class="svp-name">Google</div>
       <div class="svp-model">Gemini 2.0 Pro</div>
     </div>
-    <div class="sv-provider selected" data-llm="mistral">
+    <div class="sv-provider" data-llm="mistral">
       <div class="svp-icon" style="background:rgba(255,119,0,0.15);color:#FF7700">M</div>
       <div class="svp-name">Mistral</div>
-      <div class="svp-model">Mistral Large</div>
+      <div class="svp-model">Mistral Large 2</div>
     </div>
-    <div class="sv-provider" data-llm="local">
+    <div class="sv-provider selected" data-llm="local">
       <div class="svp-icon" style="background:rgba(34,197,94,0.15);color:#22C55E">L</div>
       <div class="svp-name">Local / Ollama</div>
       <div class="svp-model">Llama 3.3 70B</div>
@@ -2578,7 +2578,7 @@ body > div#root > div.min-h-screen > footer,
         <option>Voyage AI (voyage-3)</option>
         <option>OpenAI (text-embedding-3-large)</option>
         <option>Gemini Embedding</option>
-        <option>Mistral Embed</option>
+        <option>Mistral Embed (mistral-embed)</option>
         <option>Local (node-llama)</option>
       </select>
     </div>
@@ -2843,7 +2843,7 @@ body > div#root > div.min-h-screen > footer,
     </div>
     <div class="cal-header-actions">
       <button class="cal-today-btn" id="cal-today-btn">Today</button>
-      <button class="cal-add-btn" onclick="showToast('New Event — Coming soon!', 'info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Event</button>
+      <button class="cal-add-btn" onclick="showEventModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Event</button>
     </div>
   </div>
   <div id="cal-body">
@@ -3214,6 +3214,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     initMoltbot();
     initUploadButtons();
     initCalendar();
+    initSettings();
     loadVaultStats();
     loadRecentFiles();
     loadProcessingStatus();
@@ -3793,11 +3794,301 @@ function initCalendar() {
   const nextBtn = document.getElementById('cal-next');
   const todayBtn = document.getElementById('cal-today-btn');
   
-  if (prevBtn) prevBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); };
-  if (nextBtn) nextBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); };
-  if (todayBtn) todayBtn.onclick = () => { calendarDate = new Date(); renderCalendar(); };
+  if (prevBtn) prevBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); loadCalendarEvents(); };
+  if (nextBtn) nextBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); loadCalendarEvents(); };
+  if (todayBtn) todayBtn.onclick = () => { calendarDate = new Date(); renderCalendar(); loadCalendarEvents(); };
   
   renderCalendar();
+  loadCalendarEvents();
+  loadTodaySchedule();
+}
+
+// --- Calendar Event Store ---
+let calendarEvents = [];
+
+async function loadCalendarEvents() {
+  try {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const start = new Date(year, month, 1).toISOString();
+    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+    
+    const resp = await fetch(API + '/calendar/events?start=' + start + '&end=' + end, {
+      headers: VaultAuth.headers()
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    calendarEvents = data.events || [];
+    displayEventsOnCalendar();
+  } catch (e) {
+    console.error('Failed to load calendar events:', e);
+  }
+}
+
+function displayEventsOnCalendar() {
+  // Clear existing event badges
+  document.querySelectorAll('.cal-event').forEach(el => el.remove());
+  
+  const colorMap = { amber: 'meeting', green: 'call', purple: 'task', red: 'reminder', blue: 'meeting' };
+  
+  calendarEvents.forEach(event => {
+    const eventDate = new Date(event.date);
+    const day = eventDate.getDate();
+    const dayEl = document.querySelector(`.cal-day[data-day="${day}"]`);
+    if (dayEl) {
+      const badge = document.createElement('div');
+      badge.className = 'cal-event ' + (colorMap[event.color] || 'meeting');
+      badge.textContent = event.title;
+      badge.onclick = (e) => { e.stopPropagation(); editEvent(event); };
+      dayEl.appendChild(badge);
+    }
+  });
+}
+
+async function loadTodaySchedule() {
+  try {
+    const resp = await fetch(API + '/calendar/today', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    const container = document.querySelector('.cal-upcoming-list');
+    if (!container) return;
+    
+    if (!data.events || data.events.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.25);font-size:12px">No events today</div>';
+      return;
+    }
+    
+    container.innerHTML = data.events.map(event => {
+      const time = event.all_day ? 'All day' : new Date(event.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return `<div class="cal-upcoming-item" onclick="editEvent(${JSON.stringify(event).replace(/"/g, '&quot;')})">
+        <div class="cal-upcoming-time">${time}</div>
+        <div class="cal-upcoming-title">${escHtml(event.title)}</div>
+        ${event.description ? '<div class="cal-upcoming-desc">' + escHtml(event.description) + '</div>' : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load today schedule:', e);
+  }
+}
+
+// --- Event Modal ---
+let eventModal = null;
+
+function showEventModal(existingEvent = null) {
+  if (eventModal) eventModal.remove();
+  
+  const isEdit = !!existingEvent;
+  const defaultDate = new Date();
+  defaultDate.setHours(9, 0, 0, 0);
+  
+  eventModal = document.createElement('div');
+  eventModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  eventModal.onclick = (e) => { if (e.target === eventModal) eventModal.remove(); };
+  
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:#0a0a0a;border:1px solid rgba(245,166,35,0.2);border-radius:16px;width:90%;max-width:450px;padding:24px';
+  
+  modal.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="margin:0;font-size:18px;color:#fff">${isEdit ? 'Edit Event' : 'New Event'}</h3>
+      <button onclick="eventModal.remove()" style="background:none;border:none;color:#666;font-size:20px;cursor:pointer">&times;</button>
+    </div>
+    <form id="event-form" onsubmit="saveEvent(event, ${isEdit ? "'" + existingEvent.id + "'" : 'null'})">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Title *</label>
+        <input type="text" name="title" required value="${isEdit ? escHtml(existingEvent.title) : ''}" 
+          style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;outline:none;box-sizing:border-box"
+          placeholder="Event title">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div>
+          <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Date *</label>
+          <input type="date" name="date" required value="${isEdit ? existingEvent.date.split('T')[0] : defaultDate.toISOString().split('T')[0]}"
+            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Time</label>
+          <input type="time" name="time" value="${isEdit && !existingEvent.all_day ? new Date(existingEvent.date).toTimeString().slice(0,5) : '09:00'}"
+            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Description</label>
+        <textarea name="description" rows="2" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;outline:none;box-sizing:border-box;resize:none"
+          placeholder="Optional description">${isEdit && existingEvent.description ? escHtml(existingEvent.description) : ''}</textarea>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:block;font-size:12px;color:#888;margin-bottom:8px">Color</label>
+        <div style="display:flex;gap:8px">
+          ${['amber', 'green', 'purple', 'red', 'blue'].map(c => `
+            <label style="cursor:pointer">
+              <input type="radio" name="color" value="${c}" ${(isEdit ? existingEvent.color : 'amber') === c ? 'checked' : ''} style="display:none">
+              <div style="width:28px;height:28px;border-radius:50%;background:${c === 'amber' ? '#F5A623' : c === 'green' ? '#22C55E' : c === 'purple' ? '#7B61FF' : c === 'red' ? '#EF4444' : '#3B82F6'};border:2px solid transparent;transition:all 0.2s" 
+                onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform='scale(1)'"
+                onclick="this.parentElement.querySelectorAll('div').forEach(d=>d.style.borderColor='transparent'); this.style.borderColor='#fff'"></div>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        ${isEdit ? '<button type="button" onclick="deleteEvent(\'' + existingEvent.id + '\')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#EF4444;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:13px;margin-right:auto">Delete</button>' : ''}
+        <button type="button" onclick="eventModal.remove()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px">Cancel</button>
+        <button type="submit" style="background:#F5A623;border:none;color:#080808;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">${isEdit ? 'Update' : 'Create'}</button>
+      </div>
+    </form>
+  `;
+  
+  eventModal.appendChild(modal);
+  document.body.appendChild(eventModal);
+  modal.querySelector('input[name="title"]').focus();
+}
+
+function editEvent(event) {
+  showEventModal(event);
+}
+
+async function saveEvent(e, eventId = null) {
+  e.preventDefault();
+  const form = document.getElementById('event-form');
+  const data = new FormData(form);
+  
+  const dateStr = data.get('date');
+  const timeStr = data.get('time') || '00:00';
+  const dateTime = new Date(dateStr + 'T' + timeStr + ':00');
+  
+  const payload = {
+    title: data.get('title'),
+    date: dateTime.toISOString(),
+    description: data.get('description') || null,
+    color: data.get('color') || 'amber',
+    all_day: !data.get('time')
+  };
+  
+  try {
+    const url = eventId ? API + '/calendar/events/' + eventId : API + '/calendar/events';
+    const method = eventId ? 'PUT' : 'POST';
+    
+    const resp = await fetch(url, {
+      method,
+      headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!resp.ok) throw new Error('Failed to save event');
+    
+    eventModal.remove();
+    showToast(eventId ? 'Event updated' : 'Event created', 'success');
+    loadCalendarEvents();
+    loadTodaySchedule();
+  } catch (err) {
+    console.error('Save event error:', err);
+    showToast('Failed to save event', 'error');
+  }
+}
+
+async function deleteEvent(eventId) {
+  if (!confirm('Delete this event?')) return;
+  
+  try {
+    const resp = await fetch(API + '/calendar/events/' + eventId, {
+      method: 'DELETE',
+      headers: VaultAuth.headers()
+    });
+    
+    if (!resp.ok) throw new Error('Failed to delete');
+    
+    if (eventModal) eventModal.remove();
+    showToast('Event deleted', 'success');
+    loadCalendarEvents();
+    loadTodaySchedule();
+  } catch (err) {
+    console.error('Delete event error:', err);
+    showToast('Failed to delete event', 'error');
+  }
+}
+
+// --- Settings Persistence ---
+let userSettings = {};
+
+async function loadSettings() {
+  try {
+    const resp = await fetch(API + '/settings', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    userSettings = await resp.json();
+    applySettings();
+  } catch (e) {
+    console.error('Failed to load settings:', e);
+  }
+}
+
+function applySettings() {
+  // Apply LLM provider selection
+  document.querySelectorAll('.sv-provider').forEach(el => {
+    el.classList.toggle('selected', el.dataset.llm === userSettings.llm_provider);
+  });
+  
+  // Apply toggle states
+  document.querySelectorAll('.sv-toggle').forEach((toggle, i) => {
+    const keys = ['hybrid_search', 'temporal_decay', 'query_expansion'];
+    if (i < keys.length && userSettings[keys[i]] !== undefined) {
+      toggle.classList.toggle('on', userSettings[keys[i]]);
+    }
+  });
+}
+
+async function saveSettings(key, value) {
+  userSettings[key] = value;
+  try {
+    await fetch(API + '/settings', {
+      method: 'PATCH',
+      headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value })
+    });
+  } catch (e) {
+    console.error('Failed to save setting:', e);
+  }
+}
+
+function initSettings() {
+  // LLM provider selection
+  document.querySelectorAll('.sv-provider').forEach(el => {
+    el.onclick = () => {
+      document.querySelectorAll('.sv-provider').forEach(p => p.classList.remove('selected'));
+      el.classList.add('selected');
+      saveSettings('llm_provider', el.dataset.llm);
+      showToast('Provider updated', 'success');
+    };
+  });
+  
+  // Toggle switches
+  document.querySelectorAll('.sv-toggle').forEach((toggle, i) => {
+    const keys = ['hybrid_search', 'temporal_decay', 'query_expansion'];
+    toggle.onclick = () => {
+      toggle.classList.toggle('on');
+      if (i < keys.length) {
+        saveSettings(keys[i], toggle.classList.contains('on'));
+      }
+    };
+  });
+  
+  // Select dropdowns
+  document.querySelectorAll('.sv-select').forEach(sel => {
+    sel.onchange = () => {
+      // Map select to setting key based on parent row text
+      const label = sel.closest('.sv-row')?.querySelector('.sv-label')?.textContent;
+      const keyMap = {
+        'Active Model': 'llm_model',
+        'Vision Model': 'vision_model',
+        'Embedding Provider': 'embedding_model',
+        'Vector Backend': 'vector_backend'
+      };
+      const key = keyMap[label];
+      if (key) saveSettings(key, sel.value);
+    };
+  });
+  
+  loadSettings();
 }
 
 // --- Wire Upload Buttons ---
@@ -3835,6 +4126,7 @@ function initUploadButtons() {
         initMoltbot();
         initUploadButtons();
         initCalendar();
+        initSettings();
         loadVaultStats();
         loadRecentFiles();
         loadProcessingStatus();

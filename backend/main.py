@@ -39,7 +39,7 @@ except ImportError:
     IMESSAGE_AVAILABLE = False
 
 # Calendar
-from calendar_routes import router as calendar_router
+from calendar_routes import router as calendar_router, init_calendar
 
 # Personal AI Assistant
 from routers.assistant import router as assistant_router
@@ -54,6 +54,7 @@ from routers.publish import router as publish_router, init_publish_router
 from routers.pipeline import router as pipeline_router
 from routers.mcp import router as mcp_router, init_mcp_router
 from routers.docs_routes import router as docs_router, init_docs_router
+from routers.settings import router as settings_router, init_settings
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://vault:vault@localhost:5432/vault")
@@ -92,6 +93,9 @@ async def lifespan(app: FastAPI):
         redis_client = await aioredis.from_url(REDIS_URL)
         await redis_client.ping()
         print("✅ Redis connected")
+        # Initialize calendar and settings after redis is available
+        init_calendar(db_pool, redis_client)
+        init_settings(db_pool, redis_client)
     except Exception as e:
         print(f"⚠️ Redis connection failed: {e}")
     
@@ -152,6 +156,7 @@ app.include_router(pipeline_router)
 app.include_router(mcp_router)
 app.include_router(docs_router)
 app.include_router(versions_router)
+app.include_router(settings_router)
 if IMESSAGE_AVAILABLE:
     app.include_router(imessage_router)
 
