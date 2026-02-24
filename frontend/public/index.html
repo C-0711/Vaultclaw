@@ -2454,15 +2454,15 @@ body > div#root > div.min-h-screen > footer,
     <div class="va-icon" style="background:rgba(59,130,246,0.08)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
     <div><div class="va-title">Upload</div><div class="va-desc">Photos &amp; files</div></div>
   </div>
-  <div class="vault-action">
+  <div class="vault-action" onclick="showToast('Scan — Coming soon!', 'info')" style="cursor:pointer">
     <div class="va-icon" style="background:rgba(168,85,247,0.08)"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></div>
     <div><div class="va-title">Scan</div><div class="va-desc">Document capture</div></div>
   </div>
-  <div class="vault-action">
+  <div class="vault-action" onclick="showToast('Import — Coming soon!', 'info')" style="cursor:pointer">
     <div class="va-icon" style="background:rgba(34,197,94,0.08)"><svg style="stroke:#22C55E" viewBox="0 0 24 24"><path d="M12 3v12"></path><polyline points="8 11 12 15 16 11"></polyline><path d="M20 21H4"></path></svg></div>
     <div><div class="va-title">Import</div><div class="va-desc">Apple Photos, iMessage</div></div>
   </div>
-  <div class="vault-action">
+  <div class="vault-action" onclick="showToast('Share — Coming soon!', 'info')" style="cursor:pointer">
     <div class="va-icon" style="background:rgba(245,166,35,0.08)"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path></svg></div>
     <div><div class="va-title">Share</div><div class="va-desc">Secure links</div></div>
   </div>
@@ -2490,7 +2490,7 @@ body > div#root > div.min-h-screen > footer,
 <div class="vault-events">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <span style="font-size:12px;font-weight:600;color:#888">Upcoming</span>
-    <span style="font-size:11px;color:#F5A623;cursor:pointer">Create event →</span>
+    <span style="font-size:11px;color:#F5A623;cursor:pointer" onclick="switchView('calendar-view')">Create event →</span>
   </div>
   <div class="vault-events-empty">No events this week</div>
 </div>
@@ -2760,8 +2760,8 @@ body > div#root > div.min-h-screen > footer,
     <div id="sc-sidebar-header">
       <h3>Secure Chat</h3>
       <div class="sc-header-actions">
-        <button class="sc-header-btn" title="New Group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
-        <button class="sc-header-btn" title="New Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+        <button class="sc-header-btn" title="New Group" onclick="showToast('New Group — Coming soon!', 'info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+        <button class="sc-header-btn" title="New Chat" onclick="showToast('New Chat — Coming soon!', 'info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
       </div>
     </div>
     <div id="sc-search">
@@ -2842,7 +2842,7 @@ body > div#root > div.min-h-screen > footer,
     </div>
     <div class="cal-header-actions">
       <button class="cal-today-btn" id="cal-today-btn">Today</button>
-      <button class="cal-add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Event</button>
+      <button class="cal-add-btn" onclick="showToast('New Event — Coming soon!', 'info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Event</button>
     </div>
   </div>
   <div id="cal-body">
