@@ -99,6 +99,8 @@ async def list_events(
     if not _db_pool:
         raise HTTPException(503, "Database unavailable")
     
+    await ensure_table()
+    
     async with _db_pool.acquire() as conn:
         if start and end:
             events = await conn.fetch("""
@@ -131,6 +133,8 @@ async def get_event(event_id: str, user_id: str = Depends(get_current_user)):
     """Get a specific event."""
     if not _db_pool:
         raise HTTPException(503, "Database unavailable")
+    
+    await ensure_table()
     
     async with _db_pool.acquire() as conn:
         event = await conn.fetchrow("""
@@ -238,6 +242,7 @@ async def get_today_events(user_id: str = Depends(get_current_user)):
     if not _db_pool:
         raise HTTPException(503, "Database unavailable")
     
+    await ensure_table()
     today = datetime.utcnow().date()
     tomorrow = today + timedelta(days=1)
     
@@ -265,6 +270,7 @@ async def get_upcoming_events(
     if not _db_pool:
         raise HTTPException(503, "Database unavailable")
     
+    await ensure_table()
     now = datetime.utcnow()
     end = now + timedelta(days=days)
     
