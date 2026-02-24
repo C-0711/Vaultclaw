@@ -56,6 +56,7 @@ from routers.mcp import router as mcp_router, init_mcp_router
 from routers.docs_routes import router as docs_router, init_docs_router
 from routers.settings import router as settings_router, init_settings
 from routers.chat import router as chat_router
+from routers.files import router as files_router, init_files_router
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://vault:vault@localhost:5432/vault")
@@ -97,6 +98,7 @@ async def lifespan(app: FastAPI):
         # Initialize calendar and settings after redis is available
         init_calendar(db_pool, redis_client)
         init_settings(db_pool, redis_client)
+        init_files_router(db_pool, redis_client)
     except Exception as e:
         print(f"⚠️ Redis connection failed: {e}")
     
@@ -159,6 +161,7 @@ app.include_router(docs_router)
 app.include_router(versions_router)
 app.include_router(settings_router)
 app.include_router(chat_router, prefix="/chat", tags=["Secure Chat"])
+app.include_router(files_router, tags=["File Management"])
 if IMESSAGE_AVAILABLE:
     app.include_router(imessage_router)
 
@@ -551,13 +554,14 @@ async def direct_upload(
     # Generate storage key
     _, storage_key = generate_upload_url(user_id, file.filename or "file")
     
-    # Create item
+    # Create item with original filename
+    original_filename = file.filename or "file"
     async with db_pool.acquire() as conn:
         item_id = await conn.fetchval("""
-            INSERT INTO vault_items (user_id, item_type, storage_key, file_size, mime_type, processing_status)
-            VALUES ($1, $2, $3, $4, $5, 'uploaded')
+            INSERT INTO vault_items (user_id, item_type, storage_key, file_size, mime_type, processing_status, original_filename)
+            VALUES ($1, $2, $3, $4, $5, 'uploaded', $6)
             RETURNING id
-        """, user_id, item_type, storage_key, len(content), file.content_type)
+        """, user_id, item_type, storage_key, len(content), file.content_type, original_filename)
         
         # Add to processing queue
         await conn.execute("""
