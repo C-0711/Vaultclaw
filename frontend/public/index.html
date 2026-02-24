@@ -169,6 +169,188 @@ body > div#root > div.min-h-screen > footer,
 .claw-sum-send { width:28px; height:28px; border-radius:7px; border:none; background:#F5A623; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .claw-sum-send svg { width:12px; height:12px; stroke:#080808; stroke-width:2; fill:none; }
 
+/* Chat Settings Modal */
+.chat-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-settings-modal {
+  background: #0a0a0a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chat-settings-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-settings-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-settings-close {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.chat-settings-close:hover { color: #fff; }
+.chat-settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.chat-settings-section {
+  margin-bottom: 24px;
+}
+.chat-settings-section:last-child { margin-bottom: 0; }
+.chat-settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #F5A623;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.chat-settings-row:last-child { border-bottom: none; }
+.chat-settings-label {
+  font-size: 14px;
+  color: #e8e8e8;
+}
+.chat-settings-desc {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 2px;
+}
+.chat-settings-select {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  min-width: 160px;
+  cursor: pointer;
+}
+.chat-settings-select:focus {
+  outline: none;
+  border-color: rgba(245,166,35,0.4);
+}
+.chat-settings-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.chat-settings-toggle.active {
+  background: #F5A623;
+}
+.chat-settings-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.chat-settings-toggle.active::after {
+  transform: translateX(20px);
+}
+.chat-settings-slider {
+  width: 120px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+}
+.chat-settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #F5A623;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.chat-settings-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.chat-settings-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chat-settings-btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+}
+.chat-settings-btn-secondary:hover {
+  background: rgba(255,255,255,0.05);
+}
+.chat-settings-btn-primary {
+  background: #F5A623;
+  border: none;
+  color: #080808;
+  flex: 1;
+}
+.chat-settings-btn-primary:hover {
+  background: #FFB940;
+}
+.chat-settings-btn-danger {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.2);
+  color: #EF4444;
+}
+.chat-settings-btn-danger:hover {
+  background: rgba(239,68,68,0.2);
+}
+
 /* Bottom bar */
 #dp-bottom { height:28px; min-height:28px; display:flex; align-items:center; justify-content:center; gap:20px; background:rgba(10,10,10,0.95); border-top:1px solid rgba(255,255,255,0.04); font-size:10px; color:#444; }
 #dp-bottom .dpb-dot { width:5px; height:5px; border-radius:50%; background:#34C759; }
@@ -4247,7 +4429,7 @@ body > div#root > div.min-h-screen > footer,
   <button class="dp-nav-btn active" data-c="chat" title="Chat"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg></button>
   <button class="dp-nav-btn" data-c="explore" title="Explore" onclick="showToast('Explore skills and integrations — Coming soon!', 'info')"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button>
   <div style="flex:1"></div>
-  <button class="dp-nav-btn" data-c="settings" title="Settings" onclick="showToast('OpenClaw Settings — Coming soon!', 'info')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg></button>
+  <button class="dp-nav-btn" data-c="settings" title="Settings" onclick="openChatSettings()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg></button>
 </div>
     <div class="dp-panel-content" id="claw-content">
       <!-- OpenClaw Full View -->
@@ -7451,6 +7633,173 @@ function sendMoltbotMessageWithAttachments(userMessage) {
   
   // Fallback: use existing moltbot send logic
   return sendMoltbotChat(enhancedMessage);
+}
+
+// ============================================
+// CHAT SETTINGS
+// ============================================
+
+const ChatSettings = {
+  defaults: {
+    model: 'llama4:latest',
+    temperature: 0.7,
+    includeContext: true,
+    historyLength: 10
+  },
+  
+  load() {
+    try {
+      const saved = localStorage.getItem('openclaw_settings');
+      return saved ? { ...this.defaults, ...JSON.parse(saved) } : { ...this.defaults };
+    } catch (e) {
+      return { ...this.defaults };
+    }
+  },
+  
+  save(settings) {
+    localStorage.setItem('openclaw_settings', JSON.stringify(settings));
+  },
+  
+  get(key) {
+    return this.load()[key];
+  }
+};
+
+let chatSettingsModal = null;
+
+async function openChatSettings() {
+  if (chatSettingsModal) {
+    chatSettingsModal.remove();
+  }
+  
+  const settings = ChatSettings.load();
+  
+  // Fetch available models
+  let models = ['llama4:latest', 'llama3:latest', 'mistral:latest'];
+  try {
+    const resp = await fetch(API + '/ai/models', { headers: VaultAuth.headers() });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.models && data.models.length > 0) {
+        models = data.models.map(m => m.name || m);
+      }
+    }
+  } catch (e) {
+    console.log('Could not fetch models, using defaults');
+  }
+  
+  chatSettingsModal = document.createElement('div');
+  chatSettingsModal.className = 'chat-settings-overlay';
+  chatSettingsModal.onclick = (e) => { if (e.target === chatSettingsModal) closeChatSettings(); };
+  
+  chatSettingsModal.innerHTML = `
+    <div class="chat-settings-modal">
+      <div class="chat-settings-header">
+        <h3>⚙️ OpenClaw Settings</h3>
+        <button class="chat-settings-close" onclick="closeChatSettings()">&times;</button>
+      </div>
+      <div class="chat-settings-body">
+        
+        <div class="chat-settings-section">
+          <div class="chat-settings-section-title">🤖 AI Model</div>
+          <div class="chat-settings-row">
+            <div>
+              <div class="chat-settings-label">Model</div>
+              <div class="chat-settings-desc">Select the AI model to use</div>
+            </div>
+            <select class="chat-settings-select" id="cs-model">
+              ${models.map(m => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
+          </div>
+          <div class="chat-settings-row">
+            <div>
+              <div class="chat-settings-label">Temperature</div>
+              <div class="chat-settings-desc">Creativity level (0 = focused, 1 = creative)</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" class="chat-settings-slider" id="cs-temp" min="0" max="1" step="0.1" value="${settings.temperature}">
+              <span id="cs-temp-val" style="font-size:12px;color:#888;min-width:30px">${settings.temperature}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="chat-settings-section">
+          <div class="chat-settings-section-title">🧠 Memory & Context</div>
+          <div class="chat-settings-row">
+            <div>
+              <div class="chat-settings-label">Include vault context</div>
+              <div class="chat-settings-desc">AI can access your files and data</div>
+            </div>
+            <div class="chat-settings-toggle ${settings.includeContext ? 'active' : ''}" id="cs-context" onclick="this.classList.toggle('active')"></div>
+          </div>
+          <div class="chat-settings-row">
+            <div>
+              <div class="chat-settings-label">History length</div>
+              <div class="chat-settings-desc">Messages to remember</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" class="chat-settings-slider" id="cs-history" min="0" max="50" step="5" value="${settings.historyLength}">
+              <span id="cs-history-val" style="font-size:12px;color:#888;min-width:30px">${settings.historyLength}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="chat-settings-section">
+          <div class="chat-settings-section-title">🗑️ Data</div>
+          <div class="chat-settings-row">
+            <div>
+              <div class="chat-settings-label">Clear chat history</div>
+              <div class="chat-settings-desc">Delete all messages</div>
+            </div>
+            <button class="chat-settings-btn chat-settings-btn-danger" onclick="clearChatFromSettings()">Clear</button>
+          </div>
+        </div>
+        
+      </div>
+      <div class="chat-settings-footer">
+        <button class="chat-settings-btn chat-settings-btn-secondary" onclick="closeChatSettings()">Cancel</button>
+        <button class="chat-settings-btn chat-settings-btn-primary" onclick="saveChatSettings()">Save Settings</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(chatSettingsModal);
+  
+  // Slider value updates
+  document.getElementById('cs-temp').oninput = (e) => {
+    document.getElementById('cs-temp-val').textContent = e.target.value;
+  };
+  document.getElementById('cs-history').oninput = (e) => {
+    document.getElementById('cs-history-val').textContent = e.target.value;
+  };
+}
+
+function closeChatSettings() {
+  if (chatSettingsModal) {
+    chatSettingsModal.remove();
+    chatSettingsModal = null;
+  }
+}
+
+function saveChatSettings() {
+  const settings = {
+    model: document.getElementById('cs-model').value,
+    temperature: parseFloat(document.getElementById('cs-temp').value),
+    includeContext: document.getElementById('cs-context').classList.contains('active'),
+    historyLength: parseInt(document.getElementById('cs-history').value)
+  };
+  
+  ChatSettings.save(settings);
+  showToast('Settings saved!', 'success');
+  closeChatSettings();
+}
+
+function clearChatFromSettings() {
+  if (confirm('Clear all chat history?')) {
+    clearChat();
+    showToast('Chat history cleared', 'success');
+    closeChatSettings();
+  }
 }
 
 </script>
