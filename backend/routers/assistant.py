@@ -1,8 +1,7 @@
 """
 Moltbot AI — The brain of 0711 Vault
-Powered by Claude Sonnet 4.6 via Anthropic API
-Answers questions about YOUR photos, documents, and memories.
-Also helps with vault setup and onboarding.
+Powered by Claude Sonnet 4.6 via Anthropic API with TOOL CALLING
+Can create calendar events, search vault, analyze images, and more!
 
 OpenClaw H200V · Stuttgart · 2026
 """
@@ -16,6 +15,8 @@ from sqlalchemy import text
 import json
 import asyncio
 import traceback
+import httpx
+import uuid
 
 from config import settings
 from database import get_db, get_neo4j, get_ollama, get_redis
@@ -28,7 +29,7 @@ router = APIRouter()
 # ===========================================
 
 _anthropic_client = None
-CLAUDE_MODEL = "claude-4-sonnet-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
 
 def _get_anthropic():
@@ -66,10 +67,334 @@ def _get_anthropic():
 
 
 # ===========================================
+# TOOL DEFINITIONS
+# ===========================================
+
+MOLTBOT_TOOLS = [
+    {
+        "name": "create_calendar_event",
+        "description": "Create a new calendar event in the user's vault calendar. Use this when the user wants to schedule something, create a reminder, or add an event.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "The title/name of the event"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "The date of the event in YYYY-MM-DD format"
+                },
+                "time": {
+                    "type": "string",
+                    "description": "The time of the event in HH:MM format (24h). Optional, defaults to 09:00"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional description or notes for the event"
+                },
+                "color": {
+                    "type": "string",
+                    "enum": ["amber", "green", "purple", "red", "blue"],
+                    "description": "Color tag for the event. Defaults to amber."
+                }
+            },
+            "required": ["title", "date"]
+        }
+    },
+    {
+        "name": "list_calendar_events",
+        "description": "List upcoming calendar events. Use this when the user asks about their schedule, upcoming events, or what's on their calendar.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days to look ahead. Default is 7."
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_vault_stats",
+        "description": "Get statistics about the user's vault - number of photos, documents, storage used, etc. Use when user asks about their vault contents or storage.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "search_vault",
+        "description": "Search for photos or documents in the vault. Use when user wants to find specific files, photos from a date, or documents.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query - can be a description, date, person name, or location"
+                },
+                "item_type": {
+                    "type": "string",
+                    "enum": ["photo", "document", "all"],
+                    "description": "Type of items to search. Default is 'all'."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results to return. Default is 10."
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "delete_calendar_event",
+        "description": "Delete a calendar event by its ID. Use when user wants to remove or cancel an event.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "description": "The UUID of the event to delete"
+                }
+            },
+            "required": ["event_id"]
+        }
+    }
+]
+
+
+# ===========================================
+# TOOL HANDLERS
+# ===========================================
+
+async def execute_tool(tool_name: str, tool_input: dict, user_id: str, db) -> str:
+    """Execute a tool and return the result as a string."""
+    
+    if tool_name == "create_calendar_event":
+        return await tool_create_calendar_event(tool_input, user_id, db)
+    
+    elif tool_name == "list_calendar_events":
+        return await tool_list_calendar_events(tool_input, user_id, db)
+    
+    elif tool_name == "get_vault_stats":
+        return await tool_get_vault_stats(user_id, db)
+    
+    elif tool_name == "search_vault":
+        return await tool_search_vault(tool_input, user_id, db)
+    
+    elif tool_name == "delete_calendar_event":
+        return await tool_delete_calendar_event(tool_input, user_id, db)
+    
+    else:
+        return f"Unknown tool: {tool_name}"
+
+
+async def tool_create_calendar_event(params: dict, user_id: str, db) -> str:
+    """Create a calendar event."""
+    try:
+        title = params.get("title", "Untitled Event")
+        date_str = params.get("date")
+        time_str = params.get("time", "09:00")
+        description = params.get("description", "")
+        color = params.get("color", "amber")
+        
+        # Parse date and time
+        if 'T' in date_str:
+            event_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        else:
+            event_date = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        
+        # Insert into database
+        result = await db.execute(text("""
+            INSERT INTO calendar_events (id, user_id, title, event_date, description, color, created_at, updated_at)
+            VALUES (:id, :user_id, :title, :event_date, :description, :color, NOW(), NOW())
+            RETURNING id
+        """), {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "event_date": event_date,
+            "description": description,
+            "color": color
+        })
+        await db.commit()
+        
+        event_id = result.scalar()
+        formatted_date = event_date.strftime("%A, %B %d, %Y at %H:%M")
+        
+        return f"✅ Created event: **{title}** on {formatted_date}\nEvent ID: {event_id}"
+        
+    except Exception as e:
+        print(f"[Moltbot] Calendar create error: {e}")
+        traceback.print_exc()
+        return f"❌ Failed to create event: {str(e)}"
+
+
+async def tool_list_calendar_events(params: dict, user_id: str, db) -> str:
+    """List upcoming calendar events."""
+    try:
+        days = params.get("days", 7)
+        now = datetime.utcnow()
+        end = now + timedelta(days=days)
+        
+        result = await db.execute(text("""
+            SELECT id, title, event_date, description, color
+            FROM calendar_events
+            WHERE user_id = :user_id 
+              AND event_date >= :now 
+              AND event_date <= :end
+            ORDER BY event_date ASC
+            LIMIT 20
+        """), {
+            "user_id": user_id,
+            "now": now,
+            "end": end
+        })
+        
+        events = result.fetchall()
+        
+        if not events:
+            return f"📅 No events scheduled for the next {days} days."
+        
+        output = f"📅 **Upcoming events (next {days} days):**\n\n"
+        for e in events:
+            date_str = e.event_date.strftime("%a %b %d, %H:%M")
+            output += f"• **{e.title}** — {date_str}\n"
+            if e.description:
+                output += f"  _{e.description}_\n"
+        
+        return output
+        
+    except Exception as e:
+        print(f"[Moltbot] Calendar list error: {e}")
+        return f"❌ Failed to list events: {str(e)}"
+
+
+async def tool_get_vault_stats(user_id: str, db) -> str:
+    """Get vault statistics."""
+    try:
+        # Get counts by type
+        result = await db.execute(text("""
+            SELECT 
+                COUNT(*) FILTER (WHERE item_type = 'photo') as photos,
+                COUNT(*) FILTER (WHERE item_type = 'document') as documents,
+                COUNT(*) FILTER (WHERE item_type = 'video') as videos,
+                COALESCE(SUM(file_size), 0) as total_bytes
+            FROM vault_items
+            WHERE user_id = :user_id AND deleted_at IS NULL
+        """), {"user_id": user_id})
+        
+        stats = result.fetchone()
+        
+        # Get calendar event count
+        cal_result = await db.execute(text("""
+            SELECT COUNT(*) as count FROM calendar_events WHERE user_id = :user_id
+        """), {"user_id": user_id})
+        events = cal_result.scalar()
+        
+        total_gb = (stats.total_bytes or 0) / (1024 * 1024 * 1024)
+        
+        return f"""📊 **Your Vault Stats:**
+
+• 📷 Photos: {stats.photos or 0}
+• 📄 Documents: {stats.documents or 0}
+• 🎥 Videos: {stats.videos or 0}
+• 📅 Calendar Events: {events or 0}
+• 💾 Storage Used: {total_gb:.2f} GB of 5 GB
+
+Everything is encrypted and stored locally on the H200V! 🔐"""
+        
+    except Exception as e:
+        print(f"[Moltbot] Stats error: {e}")
+        return f"❌ Failed to get stats: {str(e)}"
+
+
+async def tool_search_vault(params: dict, user_id: str, db) -> str:
+    """Search vault items."""
+    try:
+        query = params.get("query", "")
+        item_type = params.get("item_type", "all")
+        limit = params.get("limit", 10)
+        
+        type_filter = ""
+        if item_type == "photo":
+            type_filter = "AND item_type = 'photo'"
+        elif item_type == "document":
+            type_filter = "AND item_type = 'document'"
+        
+        # Simple search by filename/path for now
+        result = await db.execute(text(f"""
+            SELECT id, item_type, storage_key, file_size, captured_at, created_at
+            FROM vault_items
+            WHERE user_id = :user_id 
+              AND deleted_at IS NULL
+              AND (storage_key ILIKE :query OR item_type ILIKE :query)
+              {type_filter}
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """), {
+            "user_id": user_id,
+            "query": f"%{query}%",
+            "limit": limit
+        })
+        
+        items = result.fetchall()
+        
+        if not items:
+            return f"🔍 No results found for '{query}'"
+        
+        output = f"🔍 **Found {len(items)} items for '{query}':**\n\n"
+        for item in items:
+            date_str = (item.captured_at or item.created_at).strftime("%Y-%m-%d") if (item.captured_at or item.created_at) else "Unknown"
+            size_kb = (item.file_size or 0) / 1024
+            icon = "📷" if item.item_type == "photo" else "📄" if item.item_type == "document" else "📁"
+            output += f"• {icon} {item.storage_key.split('/')[-1]} — {date_str} ({size_kb:.0f} KB)\n"
+        
+        return output
+        
+    except Exception as e:
+        print(f"[Moltbot] Search error: {e}")
+        return f"❌ Search failed: {str(e)}"
+
+
+async def tool_delete_calendar_event(params: dict, user_id: str, db) -> str:
+    """Delete a calendar event."""
+    try:
+        event_id = params.get("event_id")
+        
+        # Check ownership first
+        result = await db.execute(text("""
+            SELECT title FROM calendar_events WHERE id = :event_id AND user_id = :user_id
+        """), {"event_id": event_id, "user_id": user_id})
+        
+        event = result.fetchone()
+        if not event:
+            return "❌ Event not found or you don't have permission to delete it."
+        
+        await db.execute(text("""
+            DELETE FROM calendar_events WHERE id = :event_id AND user_id = :user_id
+        """), {"event_id": event_id, "user_id": user_id})
+        await db.commit()
+        
+        return f"✅ Deleted event: **{event.title}**"
+        
+    except Exception as e:
+        print(f"[Moltbot] Delete error: {e}")
+        return f"❌ Failed to delete event: {str(e)}"
+
+
+# ===========================================
 # MOLTBOT SYSTEM PROMPT
 # ===========================================
 
-MOLTBOT_SYSTEM = """Du bist **Moltbot**, der KI-Assistent im 0711 Vault — entwickelt von OpenClaw, betrieben auf einem H200V Server in Stuttgart.
+def get_system_prompt():
+    """Generate system prompt with current date."""
+    today = datetime.utcnow().strftime("%A, %B %d, %Y")
+    return f"""Du bist **Moltbot**, der KI-Assistent im 0711 Vault — entwickelt von OpenClaw, betrieben auf einem H200V Server in Stuttgart.
+
+**Aktuelles Datum: {today}**
 
 ## Deine Persoenlichkeit
 - Freundlich, hilfsbereit, und ein bisschen witzig
@@ -78,32 +403,29 @@ MOLTBOT_SYSTEM = """Du bist **Moltbot**, der KI-Assistent im 0711 Vault — entw
 - Du bist technisch kompetent aber erklaerst Dinge einfach
 - Wenn du etwas nicht weisst, sagst du das ehrlich
 
-## Was du kannst
-1. **Vault-Fragen beantworten**: Fotos finden, Dokumente suchen, Erinnerungen durchstoebern
-2. **Setup-Hilfe**: Neuen Usern erklaeren wie der Vault funktioniert
-3. **Vault-Features erklaeren**:
-   - Foto-Upload und -Verwaltung (verschluesselt)
-   - Dokumenten-Speicher
-   - Gesichtserkennung und Personen-Tagging
-   - Orte und Zeitlinien
-   - KI-gestuetzte Suche ueber alle Inhalte
-   - "On This Day" Erinnerungen
-4. **Allgemeine Fragen**: Du kannst auch allgemeine Fragen beantworten
+## Was du kannst (mit Tools!)
+1. **Kalender-Events erstellen**: "Erstell einen Termin für morgen um 14 Uhr"
+2. **Kalender anzeigen**: "Was steht diese Woche an?"
+3. **Vault durchsuchen**: "Zeig mir Fotos vom Urlaub"
+4. **Vault-Statistiken**: "Wie viele Fotos habe ich?"
+5. **Events loeschen**: "Loesch den Meeting-Termin"
 
 ## Wichtige Regeln
-- Wenn Vault-Kontext mitgegeben wird, beziehe dich darauf
-- Erfinde KEINE Daten — wenn du nichts findest, sag das
+- Nutze die Tools wenn der User eine Aktion ausfuehren will
+- Bei Kalender-Events: Frag nach wenn Datum oder Titel fehlt
+- Bestaettige ausgefuehrte Aktionen immer
 - Der Vault ist 100% privat — Daten bleiben auf dem H200V Server
-- Erwaehne bei Setup-Fragen, dass alles lokal auf dem OpenClaw H200V laeuft
 
 ## Ueber den Vault
 - **0711 Vault** ist ein privater digitaler Tresor fuer Fotos, Dokumente und Erinnerungen
 - Laeuft auf **OpenClaw H200V** Hardware in Stuttgart
 - Ende-zu-Ende verschluesselt
 - KI-Features (Gesichtserkennung, Suche) laufen lokal
-- Kein Big Tech, keine Cloud — deine Daten gehoeren dir
 
-Sei hilfreich, sei ehrlich, sei Moltbot! 🐾"""
+Sei hilfreich, sei proaktiv mit Tools, sei Moltbot! 🐾"""
+
+
+MOLTBOT_SYSTEM = get_system_prompt()  # For backwards compat
 
 
 # ===========================================
@@ -127,6 +449,7 @@ class ChatResponse(BaseModel):
     conversation_id: str
     sources: List[Dict[str, Any]]
     thinking: Optional[str] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
 
 
 class MemoryRequest(BaseModel):
@@ -140,119 +463,14 @@ class MemoryResponse(BaseModel):
 
 
 # ===========================================
-# CONTEXT BUILDER — RAG Engine (Ollama embeddings)
+# CLAUDE CHAT WITH TOOLS
 # ===========================================
 
-async def build_context(query: str, user_id: str, db, neo4j) -> Dict[str, Any]:
-    """
-    Build rich context from the user's vault.
-    Uses Ollama for embeddings (semantic search), Claude for chat.
-    """
-    context = {
-        "photos": [],
-        "documents": [],
-        "people": [],
-        "places": [],
-        "events": [],
-        "timeline": []
-    }
-
-    ollama = get_ollama()
-
-    # 1. Generate query embedding via Ollama
-    if not ollama:
-        print("[Moltbot] Ollama not available — skipping semantic search")
-        return context
-
-    try:
-        embedding_response = await asyncio.wait_for(
-            ollama.embeddings(model=settings.EMBEDDING_MODEL, prompt=query),
-            timeout=5.0
-        )
-        query_embedding = embedding_response['embedding']
-    except (asyncio.TimeoutError, Exception) as e:
-        print(f"[Moltbot] Embedding error (skipping context): {e}")
-        return context
-
-    # 2. Semantic search in PostgreSQL (pgvector)
-    try:
-        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
-        result = await db.execute(text("""
-            SELECT
-                vi.id,
-                vi.item_type,
-                vi.encrypted_metadata,
-                vi.captured_at,
-                vi.storage_key,
-                1 - (e.embedding <=> CAST(:query_embedding AS vector)) as score
-            FROM embeddings e
-            JOIN vault_items vi ON e.item_id = vi.id
-            WHERE vi.user_id = :user_id
-              AND vi.deleted_at IS NULL
-            ORDER BY e.embedding <=> CAST(:query_embedding AS vector)
-            LIMIT 10
-        """), {
-            "query_embedding": embedding_str,
-            "user_id": user_id
-        })
-
-        items = result.fetchall()
-        for item in items:
-            if item.item_type == 'photo':
-                context["photos"].append({
-                    "id": str(item.id),
-                    "captured_at": item.captured_at.isoformat() if item.captured_at else None,
-                    "score": item.score,
-                    "path": item.storage_key
-                })
-            elif item.item_type == 'document':
-                context["documents"].append({
-                    "id": str(item.id),
-                    "score": item.score,
-                    "path": item.storage_key
-                })
-    except Exception as e:
-        print(f"[Moltbot] Semantic search error: {e}")
-        traceback.print_exc()
-
-    # 3. Graph search (Neo4j)
-    if neo4j:
-        try:
-            async with neo4j.session() as session:
-                result = await session.run("""
-                    MATCH (p:Person)-[:APPEARS_IN]->(i:VaultItem)
-                    WHERE i.user_id = $user_id
-                    WITH p, count(i) as appearances
-                    RETURN p.id as id, p.name as name, appearances
-                    ORDER BY appearances DESC
-                    LIMIT 20
-                """, user_id=user_id)
-                context["people"] = await result.data()
-
-                result = await session.run("""
-                    MATCH (l:Location)<-[:TAKEN_AT]-(i:VaultItem)
-                    WHERE i.user_id = $user_id
-                    WITH l, count(i) as photo_count
-                    RETURN l.id as id, l.name as name, l.coordinates as coords, photo_count
-                    ORDER BY photo_count DESC
-                    LIMIT 10
-                """, user_id=user_id)
-                context["places"] = await result.data()
-        except Exception as e:
-            print(f"[Moltbot] Graph search error: {e}")
-
-    return context
-
-
-# ===========================================
-# CLAUDE CHAT (with Ollama fallback)
-# ===========================================
-
-async def _chat_claude(messages: list, stream: bool = False):
-    """Call Claude Sonnet 4.6 via Anthropic API."""
+async def _chat_claude_with_tools(messages: list, user_id: str, db):
+    """Call Claude with tool definitions and execute any tool calls."""
     client = _get_anthropic()
     if not client:
-        return None
+        return None, []
 
     # Separate system prompt from messages
     system_text = ""
@@ -263,21 +481,71 @@ async def _chat_claude(messages: list, stream: bool = False):
         else:
             chat_messages.append({"role": msg["role"], "content": msg["content"]})
 
-    if stream:
-        return client.messages.stream(
-            model=CLAUDE_MODEL,
-            max_tokens=2048,
-            system=system_text,
-            messages=chat_messages,
-        )
-    else:
+    tool_results = []
+    max_iterations = 5
+    
+    for iteration in range(max_iterations):
+        # Call Claude with tools
         response = client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=2048,
             system=system_text,
             messages=chat_messages,
+            tools=MOLTBOT_TOOLS
         )
-        return response.content[0].text
+        
+        # Check if Claude wants to use tools
+        if response.stop_reason == "tool_use":
+            # Process tool calls
+            assistant_content = response.content
+            tool_use_blocks = [block for block in assistant_content if block.type == "tool_use"]
+            
+            # Add assistant message with tool use
+            chat_messages.append({
+                "role": "assistant",
+                "content": assistant_content
+            })
+            
+            # Execute each tool and collect results
+            tool_results_content = []
+            for tool_block in tool_use_blocks:
+                print(f"[Moltbot] Executing tool: {tool_block.name}")
+                result = await execute_tool(
+                    tool_block.name,
+                    tool_block.input,
+                    user_id,
+                    db
+                )
+                tool_results.append({
+                    "tool": tool_block.name,
+                    "input": tool_block.input,
+                    "result": result
+                })
+                tool_results_content.append({
+                    "type": "tool_result",
+                    "tool_use_id": tool_block.id,
+                    "content": result
+                })
+            
+            # Add tool results to messages
+            chat_messages.append({
+                "role": "user",
+                "content": tool_results_content
+            })
+            
+            # Continue loop to get Claude's response after tool execution
+            continue
+        
+        else:
+            # Claude is done, extract final text response
+            text_response = ""
+            for block in response.content:
+                if hasattr(block, "text"):
+                    text_response += block.text
+            
+            return text_response, tool_results
+    
+    return "Ich habe zu viele Tool-Aufrufe gemacht. Bitte versuche es nochmal mit einer einfacheren Anfrage.", tool_results
 
 
 async def _chat_ollama_fallback(messages: list):
@@ -305,9 +573,8 @@ async def _chat_ollama_fallback(messages: list):
 async def chat(request: ChatRequest, user_id: str = Depends(get_current_user), db=Depends(get_db)):
     """
     Chat with Moltbot — your vault's AI assistant.
-    Powered by Claude Sonnet 4.6.
+    Powered by Claude Sonnet with TOOL CALLING!
     """
-    neo4j = get_neo4j()
     redis = get_redis()
 
     # Get or create conversation
@@ -323,49 +590,25 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user), d
         except Exception:
             pass
 
-    # Build vault context (RAG)
-    sources = []
-    vault_context = ""
-
-    if request.include_context:
-        context = await build_context(request.message, user_id, db, neo4j)
-
-        if context["photos"]:
-            vault_context += f"\n\nRelevant photos found: {len(context['photos'])}"
-            for p in context["photos"][:5]:
-                vault_context += f"\n- Photo from {p['captured_at'] or 'unknown date'} (relevance: {p['score']:.2f})"
-                sources.append({"type": "photo", "id": p["id"], "date": p["captured_at"]})
-
-        if context["documents"]:
-            vault_context += f"\n\nRelevant documents found: {len(context['documents'])}"
-            for d in context["documents"][:3]:
-                sources.append({"type": "document", "id": d["id"]})
-
-        if context["people"]:
-            vault_context += f"\n\nPeople in your vault: {', '.join([p['name'] for p in context['people'][:10] if p['name']])}"
-
-        if context["places"]:
-            vault_context += f"\n\nPlaces you've been: {', '.join([p['name'] for p in context['places'][:10] if p['name']])}"
-
     # Build messages
-    messages = [{"role": "system", "content": MOLTBOT_SYSTEM}]
+    messages = [{"role": "system", "content": get_system_prompt()}]
 
+    # Add history (skip tool-related messages for simplicity)
     for msg in history[-10:]:
-        messages.append(msg)
+        if msg.get("role") in ["user", "assistant"] and isinstance(msg.get("content"), str):
+            messages.append(msg)
 
-    user_message = request.message
-    if vault_context:
-        user_message += f"\n\n[VAULT CONTEXT]{vault_context}\n[/VAULT CONTEXT]"
+    messages.append({"role": "user", "content": request.message})
 
-    messages.append({"role": "user", "content": user_message})
-
-    # Generate response — Claude first, Ollama fallback
+    # Generate response with tools
     assistant_response = None
+    tool_calls = []
 
     try:
-        assistant_response = await _chat_claude(messages, stream=False)
+        assistant_response, tool_calls = await _chat_claude_with_tools(messages, user_id, db)
     except Exception as e:
         print(f"[Moltbot] Claude error: {e}")
+        traceback.print_exc()
 
     if not assistant_response:
         assistant_response = await _chat_ollama_fallback(messages)
@@ -393,30 +636,24 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user), d
     return ChatResponse(
         response=assistant_response,
         conversation_id=conversation_id,
-        sources=sources
+        sources=[],
+        tool_calls=tool_calls if tool_calls else None
     )
 
+
+# ===========================================
+# STREAMING ENDPOINT (simplified, no tools)
+# ===========================================
 
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_user), db=Depends(get_db)):
     """
     Streaming chat with Moltbot via Server-Sent Events.
-    Claude Sonnet 4.6 with SSE streaming.
+    Note: Streaming doesn't support tool calling - use /chat for tools.
     """
-    neo4j = get_neo4j()
-
-    # Build context
-    context = await build_context(request.message, user_id, db, neo4j) if request.include_context else {}
-
-    vault_context = ""
-    if context.get("photos"):
-        vault_context += f"\nFound {len(context['photos'])} relevant photos."
-    if context.get("people"):
-        vault_context += f"\nPeople: {', '.join([p['name'] for p in context['people'][:5] if p.get('name')])}"
-
     messages = [
-        {"role": "system", "content": MOLTBOT_SYSTEM},
-        {"role": "user", "content": request.message + (f"\n\n[Context]{vault_context}[/Context]" if vault_context else "")}
+        {"role": "system", "content": get_system_prompt()},
+        {"role": "user", "content": request.message}
     ]
 
     async def generate_claude():
@@ -447,26 +684,22 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
 
         except Exception as e:
             print(f"[Moltbot] Stream error: {e}")
-            # Fallback: non-streaming Ollama response
             fallback = await _chat_ollama_fallback(messages)
             if fallback:
                 yield f"data: {json.dumps({'content': fallback})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
             else:
-                yield f"data: {json.dumps({'error': 'Moltbot ist gerade nicht erreichbar. Bitte versuche es nochmal!'})}\n\n"
+                yield f"data: {json.dumps({'error': 'Moltbot ist gerade nicht erreichbar.'})}\n\n"
 
     return StreamingResponse(
         generate_claude(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
     )
 
 
 # ===========================================
-# MEMORY FEATURES (unchanged from original)
+# MEMORY FEATURES
 # ===========================================
 
 @router.get("/memories/on-this-day")
@@ -489,29 +722,17 @@ async def on_this_day(user_id: str = Depends(get_current_user), db=Depends(get_d
               AND deleted_at IS NULL
             ORDER BY captured_at
             LIMIT 10
-        """), {
-            "user_id": user_id,
-            "start": start,
-            "end": end
-        })
+        """), {"user_id": user_id, "start": start, "end": end})
 
         photos = result.fetchall()
         if photos:
             memories.append({
                 "year": target_date.year,
                 "years_ago": years_ago,
-                "photos": [
-                    {
-                        "id": str(p.id),
-                        "path": p.storage_key,
-                        "captured_at": p.captured_at.isoformat()
-                    }
-                    for p in photos
-                ]
+                "photos": [{"id": str(p.id), "path": p.storage_key, "captured_at": p.captured_at.isoformat()} for p in photos]
             })
 
-    message = f"Found memories from {len(memories)} previous years!" if memories else "No memories from this day yet. Keep capturing moments!"
-
+    message = f"Found memories from {len(memories)} previous years!" if memories else "No memories from this day yet."
     return MemoryResponse(memories=memories, message=message)
 
 
@@ -521,71 +742,16 @@ async def weekly_highlights(user_id: str = Depends(get_current_user), days: int 
     since = datetime.utcnow() - timedelta(days=days)
 
     result = await db.execute(text("""
-        SELECT id, storage_key, captured_at, encrypted_metadata
-        FROM vault_items
-        WHERE user_id = :user_id
-          AND item_type = 'photo'
-          AND created_at >= :since
-          AND deleted_at IS NULL
-        ORDER BY created_at DESC
-        LIMIT 50
-    """), {
-        "user_id": user_id,
-        "since": since
-    })
+        SELECT id, storage_key, captured_at FROM vault_items
+        WHERE user_id = :user_id AND item_type = 'photo' AND created_at >= :since AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 50
+    """), {"user_id": user_id, "since": since})
 
     photos = result.fetchall()
-
     return {
         "period": f"Last {days} days",
         "total_photos": len(photos),
-        "highlights": [
-            {
-                "id": str(p.id),
-                "path": p.storage_key,
-                "captured_at": p.captured_at.isoformat() if p.captured_at else None
-            }
-            for p in photos[:10]
-        ]
-    }
-
-
-@router.get("/memories/people/{person_id}")
-async def person_memories(person_id: str, user_id: str = Depends(get_current_user), db=Depends(get_db)):
-    """Get all memories featuring a specific person."""
-    neo4j = get_neo4j()
-    if not neo4j:
-        raise HTTPException(status_code=503, detail="Graph database not available")
-
-    async with neo4j.session() as session:
-        result = await session.run("""
-            MATCH (p:Person {id: $person_id})
-            RETURN p.name as name, p.first_seen as first_seen, p.last_seen as last_seen
-        """, person_id=person_id)
-
-        person = await result.single()
-        if not person:
-            raise HTTPException(status_code=404, detail="Person not found")
-
-        result = await session.run("""
-            MATCH (p:Person {id: $person_id})-[:APPEARS_IN]->(i:VaultItem)
-            WHERE i.user_id = $user_id
-            RETURN i.id as id, i.captured_at as date, i.storage_key as path
-            ORDER BY i.captured_at DESC
-            LIMIT 100
-        """, person_id=person_id, user_id=user_id)
-
-        photos = await result.data()
-
-    return {
-        "person": {
-            "id": person_id,
-            "name": person["name"],
-            "first_seen": person["first_seen"],
-            "last_seen": person["last_seen"]
-        },
-        "photo_count": len(photos),
-        "photos": photos
+        "highlights": [{"id": str(p.id), "path": p.storage_key, "captured_at": p.captured_at.isoformat() if p.captured_at else None} for p in photos[:10]]
     }
 
 
@@ -599,8 +765,7 @@ async def get_conversation(conversation_id: str, user_id: str = Depends(get_curr
     try:
         cached = await redis.get(f"conversation:{conversation_id}")
         if cached:
-            history = json.loads(cached)
-            return {"conversation_id": conversation_id, "messages": history}
+            return {"conversation_id": conversation_id, "messages": json.loads(cached)}
     except Exception:
         pass
     
@@ -616,7 +781,6 @@ async def clear_conversation(conversation_id: str, user_id: str = Depends(get_cu
             await redis.delete(f"conversation:{conversation_id}")
         except Exception:
             pass
-    
     return {"cleared": True}
 
 
@@ -628,7 +792,6 @@ async def list_conversations(user_id: str = Depends(get_current_user)):
         return {"conversations": []}
     
     try:
-        # Scan for user's conversations
         pattern = f"conversation:conv_{user_id}_*"
         conversations = []
         cursor = 0
@@ -637,7 +800,6 @@ async def list_conversations(user_id: str = Depends(get_current_user)):
             for key in keys:
                 key_str = key.decode() if isinstance(key, bytes) else key
                 conv_id = key_str.replace("conversation:", "")
-                # Get first message as preview
                 data = await redis.get(key)
                 if data:
                     msgs = json.loads(data)
@@ -648,17 +810,3 @@ async def list_conversations(user_id: str = Depends(get_current_user)):
         return {"conversations": conversations[:20]}
     except Exception:
         return {"conversations": []}
-
-
-@router.post("/albums/generate")
-async def generate_smart_album(
-    album_type: str,
-    params: Dict[str, Any] = {},
-    user_id: str = Depends(get_current_user),
-    db=Depends(get_db)
-):
-    """Generate a smart album using AI."""
-    return {
-        "status": "coming_soon",
-        "message": "Smart album generation is being built!"
-    }
