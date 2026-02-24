@@ -3021,7 +3021,7 @@ body > div#root > div.min-h-screen > footer,
   <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span style="font-size:14px;font-weight:500;color:#fff">Recent Files</span>
-      <span style="font-size:12px;color:rgba(245,166,35,0.6);cursor:pointer">View all</span>
+      <span style="font-size:12px;color:rgba(245,166,35,0.6);cursor:pointer" onclick="browseFolder('all')">View all</span>
     </div>
 
     <div id="recent-files-list" style="padding:20px;text-align:center;color:rgba(255,255,255,0.15);font-size:13px">No files uploaded yet</div>
@@ -3504,15 +3504,18 @@ let fileBrowserModal = null;
 
 async function browseFolder(itemType) {
   try {
-    const resp = await fetch(API + '/vault/items?item_type=' + itemType + '&limit=50', { headers: VaultAuth.headers() });
+    const url = itemType === 'all' 
+      ? API + '/vault/items?limit=50' 
+      : API + '/vault/items?item_type=' + itemType + '&limit=50';
+    const resp = await fetch(url, { headers: VaultAuth.headers() });
     if (!resp.ok) return;
     const data = await resp.json();
     const items = data.items || data || [];
     
-    const typeNames = { document: 'Documents', photo: 'Photos', video: 'Videos', audio: 'Audio' };
+    const typeNames = { document: 'Documents', photo: 'Photos', video: 'Videos', audio: 'Audio', all: 'All Files' };
     const typeName = typeNames[itemType] || itemType;
-    const icons = { document: '📄', photo: '🖼️', video: '🎥', audio: '🎵' };
-    const icon = icons[itemType] || '📁';
+    const getIcon = (type) => ({ document: '📄', photo: '🖼️', video: '🎥', audio: '🎵' }[type] || '📁');
+    const icon = itemType === 'all' ? '📁' : getIcon(itemType);
     
     // Create modal
     if (fileBrowserModal) fileBrowserModal.remove();
@@ -3541,13 +3544,15 @@ async function browseFolder(itemType) {
             const name = item.storage_key ? item.storage_key.split('/').pop() : 'File';
             const size = item.file_size ? (item.file_size < 1024*1024 ? (item.file_size/1024).toFixed(1)+' KB' : (item.file_size/(1024*1024)).toFixed(1)+' MB') : '';
             const date = item.created_at ? new Date(item.created_at).toLocaleDateString() : '';
-            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:0.2s" onmouseenter="this.style.background=\\'rgba(255,255,255,0.05)\\'" onmouseleave="this.style.background=\\'transparent\\'">' +
-              '<span style="font-size:20px">' + icon + '</span>' +
+            const itemIcon = getIcon(item.item_type);
+            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;transition:0.2s" onmouseenter="this.style.background=\\'rgba(255,255,255,0.05)\\'" onmouseleave="this.style.background=\\'transparent\\'">' +
+              '<span style="font-size:20px">' + itemIcon + '</span>' +
               '<div style="flex:1;min-width:0">' +
                 '<div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(name) + '</div>' +
                 '<div style="font-size:11px;color:rgba(255,255,255,0.3)">' + size + (date ? ' · ' + date : '') + '</div>' +
               '</div>' +
               '<button onclick="downloadFile(\\'' + item.id + '\\')" style="background:rgba(245,166,35,0.1);border:none;color:#F5A623;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download</button>' +
+              '<button onclick="deleteFile(\\'' + item.id + '\\', \\'' + escHtml(name).replace(/'/g, "\\\\'") + '\\')" style="background:rgba(239,68,68,0.1);border:none;color:#EF4444;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>' +
             '</div>';
           }).join('')
         }
@@ -3577,6 +3582,28 @@ async function downloadFile(itemId) {
   } catch (e) {
     console.error('Download error:', e);
     showToast('Download failed', 'error');
+  }
+}
+
+async function deleteFile(itemId, fileName) {
+  if (!confirm('Delete "' + fileName + '"? This cannot be undone.')) return;
+  
+  try {
+    const resp = await fetch(API + '/vault/items/' + itemId, {
+      method: 'DELETE',
+      headers: VaultAuth.headers()
+    });
+    if (!resp.ok) throw new Error('Delete failed');
+    
+    showToast('Deleted: ' + fileName, 'success');
+    
+    // Close modal and refresh
+    if (fileBrowserModal) fileBrowserModal.remove();
+    loadVaultStats();
+    loadRecentFiles();
+  } catch (e) {
+    console.error('Delete error:', e);
+    showToast('Delete failed', 'error');
   }
 }
 
