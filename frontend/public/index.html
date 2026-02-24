@@ -720,6 +720,40 @@ body > div#root > div.min-h-screen > footer,
   font-size: 10px;
   color: rgba(245,166,35,0.4);
 }
+/* Message media attachments */
+.sc-msg-media {
+  margin-bottom: 8px;
+}
+.sc-msg-media img {
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.sc-msg-media img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.sc-msg-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+.sc-msg-file:hover {
+  background: rgba(245,166,35,0.1);
+}
+.sc-msg-file svg {
+  flex-shrink: 0;
+}
+.sc-msg-file span {
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+}
 
 /* E2E badge in messages */
 .sc-e2e-badge {
@@ -2802,7 +2836,7 @@ body > div#root > div.min-h-screen > footer,
     </div>
     <div id="sc-input-area">
       <div class="sc-input-actions">
-        <button class="sc-input-btn" title="Attach file" onclick="showToast('File attachments coming soon!', 'info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+        <button class="sc-input-btn" title="Attach from Vault" onclick="showChatAttachPicker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
       </div>
       <textarea id="sc-msg-input" placeholder="Type a message..." rows="1" style="height: auto;"></textarea>
       <div class="sc-input-actions">
@@ -3510,17 +3544,47 @@ async function loadSecureMessages(convId) {
     
     container.innerHTML = messages.map(msg => {
       const isSent = msg.sender_id === localStorage.getItem('userId');
+      // Parse media attachment if present
+      let mediaHtml = '';
+      if (msg.encrypted_media_ref) {
+        try {
+          const mediaRef = JSON.parse(hexToStr(msg.encrypted_media_ref));
+          if (mediaRef.vault_file_id) {
+            if (mediaRef.item_type === 'photo' || mediaRef.mime_type?.startsWith('image/')) {
+              const imgId = 'chat-img-' + mediaRef.vault_file_id;
+              mediaHtml = `<div class="sc-msg-media" onclick="previewChatImage('${mediaRef.vault_file_id}')">
+                <img id="${imgId}" data-file-id="${mediaRef.vault_file_id}" class="chat-img-lazy" alt="${escHtml(mediaRef.filename)}" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;background:rgba(255,255,255,0.05)">
+              </div>`;
+            } else {
+              mediaHtml = `<div class="sc-msg-file" onclick="downloadChatFile('${mediaRef.vault_file_id}')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>${escHtml(mediaRef.filename)} (${formatFileSize(mediaRef.file_size)})</span>
+              </div>`;
+            }
+          }
+        } catch (e) { console.log('Failed to parse media ref:', e); }
+      }
+      const textContent = msg.encrypted_content ? hexToStr(msg.encrypted_content) : msg.content || '';
       return `<div class="sc-msg ${isSent ? 'sent' : 'received'}">
         <div class="sc-msg-avatar ${msg.sender_type || 'human'}">${msg.sender_name?.[0]?.toUpperCase() || '?'}</div>
         <div class="sc-msg-bubble">
           ${!isSent ? '<div class="sc-msg-sender">' + escHtml(msg.sender_name || 'Unknown') + '</div>' : ''}
-          <div>${escHtml(msg.content)}</div>
+          ${mediaHtml}
+          ${textContent && textContent !== '\\x00' ? '<div>' + escHtml(textContent) + '</div>' : ''}
           <div class="sc-msg-time">${new Date(msg.created_at).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}</div>
         </div>
       </div>`;
     }).join('');
     
     container.scrollTop = container.scrollHeight;
+    
+    // Load images with auth
+    setTimeout(() => {
+      container.querySelectorAll('.chat-img-lazy').forEach(img => {
+        const fileId = img.dataset.fileId;
+        if (fileId && !img.src) loadChatImage(img, fileId);
+      });
+    }, 100);
   } catch (e) {
     console.error('Failed to load messages:', e);
   }
@@ -3542,7 +3606,7 @@ async function sendSecureMessage() {
     const resp = await fetch(API + '/chat/conversations/' + scCurrentConv.id + '/messages', {
       method: 'POST',
       headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, encrypted_content: content })
+      body: JSON.stringify({ content, encrypted_content: strToHex(content) })
     });
     
     if (!resp.ok) throw new Error('Send failed');
@@ -3551,6 +3615,173 @@ async function sendSecureMessage() {
   } catch (e) {
     console.error('Failed to send message:', e);
     showToast('Failed to send message', 'error');
+  }
+}
+
+// Helper: string to hex
+function strToHex(str) {
+  return Array.from(new TextEncoder().encode(str)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Helper: hex to string  
+function hexToStr(hex) {
+  if (!hex || hex === '00') return '';
+  try {
+    const bytes = hex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || [];
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  } catch (e) { return ''; }
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Preview image from chat (with auth)
+async function previewChatImage(fileId) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10001;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  modal.onclick = () => modal.remove();
+  modal.innerHTML = '<div style="color:#888">Loading...</div>';
+  document.body.appendChild(modal);
+  
+  try {
+    const resp = await fetch(API + '/vault/items/' + fileId + '/download', { headers: VaultAuth.headers() });
+    if (!resp.ok) throw new Error('Failed to load');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    modal.innerHTML = `<img src="${url}" style="max-width:90%;max-height:90%;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5)" onclick="event.stopPropagation()">`;
+  } catch (e) {
+    modal.innerHTML = '<div style="color:#f66">Failed to load image</div>';
+  }
+}
+
+// Load authenticated image for chat message
+async function loadChatImage(imgEl, fileId) {
+  try {
+    const resp = await fetch(API + '/vault/items/' + fileId + '/download', { headers: VaultAuth.headers() });
+    if (!resp.ok) throw new Error('Failed');
+    const blob = await resp.blob();
+    imgEl.src = URL.createObjectURL(blob);
+  } catch (e) {
+    imgEl.alt = 'Failed to load';
+    imgEl.style.background = 'rgba(255,0,0,0.1)';
+  }
+}
+
+// Download file from chat (with auth)
+async function downloadChatFile(fileId) {
+  try {
+    const resp = await fetch(API + '/vault/items/' + fileId + '/download', { headers: VaultAuth.headers() });
+    if (!resp.ok) throw new Error('Failed');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'file';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    showToast('Failed to download file', 'error');
+  }
+}
+
+// Show vault file picker for chat attachment
+function showChatAttachPicker() {
+  if (!scCurrentConv) {
+    showToast('Select a conversation first', 'info');
+    return;
+  }
+  
+  const modal = document.createElement('div');
+  modal.className = 'vault-attach-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  
+  modal.innerHTML = `
+    <div style="background:#0a0a0a;border:1px solid rgba(245,166,35,0.3);border-radius:16px;width:90%;max-width:500px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;color:#fff;font-size:16px">📎 Attach from Vault</h3>
+        <button onclick="this.closest('.vault-attach-modal').remove()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer">&times;</button>
+      </div>
+      <div id="attach-file-list" style="flex:1;overflow-y:auto;padding:12px">
+        <div style="text-align:center;padding:40px;color:#888">Loading files...</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Load files
+  loadVaultFilesForAttach();
+}
+
+async function loadVaultFilesForAttach() {
+  const container = document.getElementById('attach-file-list');
+  try {
+    const resp = await fetch(API + '/vault/items?limit=50', { headers: VaultAuth.headers() });
+    if (!resp.ok) throw new Error('Failed to load');
+    const data = await resp.json();
+    const items = data.items || [];
+    
+    if (items.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#888">No files in vault. Upload some files first!</div>';
+      return;
+    }
+    
+    container.innerHTML = items.map(item => {
+      const icon = item.item_type === 'photo' ? '📷' : item.item_type === 'document' ? '📄' : '🎥';
+      const filename = item.storage_key?.split('/').pop() || 'File';
+      const size = formatFileSize(item.file_size);
+      return `<div class="attach-file-item" onclick="attachVaultFile('${item.id}', '${escHtml(filename)}', '${item.item_type}')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background='rgba(245,166,35,0.1)'" onmouseout="this.style.background='transparent'">
+        <span style="font-size:24px">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="color:#fff;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(filename)}</div>
+          <div style="color:#888;font-size:12px">${size} · ${new Date(item.created_at).toLocaleDateString()}</div>
+        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#f66">Failed to load files</div>';
+  }
+}
+
+async function attachVaultFile(fileId, filename, itemType) {
+  // Close modal
+  document.querySelector('.vault-attach-modal')?.remove();
+  
+  // Get optional caption
+  const caption = prompt('Add a caption (optional):', '') || '';
+  
+  try {
+    // Send message with file attachment via API
+    const mediaRef = JSON.stringify({
+      vault_file_id: fileId,
+      filename: filename,
+      item_type: itemType
+    });
+    
+    const resp = await fetch(API + '/chat/conversations/' + scCurrentConv.id + '/messages', {
+      method: 'POST',
+      headers: { ...VaultAuth.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        encrypted_content: strToHex(caption),
+        message_type: itemType === 'photo' ? 'image' : 'file',
+        encrypted_media_ref: strToHex(mediaRef)
+      })
+    });
+    
+    if (!resp.ok) throw new Error('Failed to send');
+    
+    showToast('File shared!', 'success');
+    await loadSecureMessages(scCurrentConv.id);
+  } catch (e) {
+    console.error('Failed to attach file:', e);
+    showToast('Failed to share file', 'error');
   }
 }
 
@@ -3769,11 +4000,16 @@ async function loadRecentFiles() {
     container.innerHTML = items.map(item => {
       const icon = item.item_type === 'photo' ? '🖼️' : item.item_type === 'video' ? '🎥' : item.item_type === 'audio' ? '🎵' : '📄';
       const size = item.file_size ? (item.file_size / 1024).toFixed(1) + ' KB' : '';
-      const name = item.storage_key ? item.storage_key.split('/').pop() : 'File';
-      return `<div onclick="showFileActions('${item.id}', '${escHtml(name).replace(/'/g, "\\'")}', '${item.item_type}')" style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;cursor:pointer" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+      const rawName = item.storage_key ? item.storage_key.split('/').pop() : 'File';
+      const ext = rawName.includes('.') ? rawName.split('.').pop().toUpperCase() : '';
+      const typeLabel = { photo: 'Image', document: 'Document', video: 'Video', audio: 'Audio' }[item.item_type] || 'File';
+      const displayName = rawName.length > 40 ? typeLabel + (ext ? ' (' + ext + ')' : '') : rawName;
+      const isImage = item.item_type === 'photo' || rawName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+      const clickAction = isImage ? `previewImage('${item.id}', '${escHtml(rawName).replace(/'/g, "\\'")}')` : `showFileActions('${item.id}', '${escHtml(rawName).replace(/'/g, "\\'")}', '${item.item_type}')`;
+      return `<div onclick="${clickAction}" style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;cursor:pointer" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
         <span style="font-size:18px">${icon}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(displayName)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,0.25)">${size}</div>
         </div>
         <span style="font-size:10px;color:rgba(255,255,255,0.2)">⋯</span>
@@ -3826,18 +4062,22 @@ async function browseFolder(itemType) {
       <div style="flex:1;overflow-y:auto;padding:12px">
         ${items.length === 0 ? '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">No files yet</div>' : 
           items.map(item => {
-            const name = item.storage_key ? item.storage_key.split('/').pop() : 'File';
+            const name = item.storage_key ? item.storage_key.split('/').pop() : (item.original_name || 'File');
             const size = item.file_size ? (item.file_size < 1024*1024 ? (item.file_size/1024).toFixed(1)+' KB' : (item.file_size/(1024*1024)).toFixed(1)+' MB') : '';
             const date = item.created_at ? new Date(item.created_at).toLocaleDateString() : '';
             const itemIcon = getIcon(item.item_type);
-            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;transition:0.2s" onmouseenter="this.style.background=\'rgba(255,255,255,0.05)\'" onmouseleave="this.style.background=\'transparent\'">' +
+            const isImage = item.item_type === 'photo' || name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
+            const isDoc = item.item_type === 'document' || name.match(/\.(pdf|txt|doc|docx|md)$/i);
+            const clickAction = isImage ? `previewImage('${item.id}', '${escHtml(name).replace(/'/g, "\\'")}')` : (isDoc ? `previewDocument('${item.id}', '${escHtml(name).replace(/'/g, "\\'")}')` : '');
+            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;transition:0.2s;cursor:' + (clickAction ? 'pointer' : 'default') + '" onmouseenter="this.style.background=\'rgba(255,255,255,0.05)\'" onmouseleave="this.style.background=\'transparent\'" ' + (clickAction ? 'onclick="' + clickAction + '"' : '') + '>' +
               '<span style="font-size:20px">' + itemIcon + '</span>' +
               '<div style="flex:1;min-width:0">' +
                 '<div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(name) + '</div>' +
                 '<div style="font-size:11px;color:rgba(255,255,255,0.3)">' + size + (date ? ' · ' + date : '') + '</div>' +
               '</div>' +
-              '<button onclick="downloadFile(\'' + item.id + '\')" style="background:rgba(245,166,35,0.1);border:none;color:#F5A623;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download</button>' +
-              '<button onclick="deleteFile(\'' + item.id + '\', \'' + escHtml(name).replace(/'/g, "\\'") + '\')" style="background:rgba(239,68,68,0.1);border:none;color:#EF4444;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>' +
+              (isImage ? '<button onclick="event.stopPropagation(); previewImage(\'' + item.id + '\', \'' + escHtml(name).replace(/'/g, "\\'") + '\')" style="background:rgba(59,130,246,0.1);border:none;color:#3B82F6;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Preview</button>' : '') +
+              '<button onclick="event.stopPropagation(); downloadFile(\'' + item.id + '\')" style="background:rgba(245,166,35,0.1);border:none;color:#F5A623;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download</button>' +
+              '<button onclick="event.stopPropagation(); deleteFile(\'' + item.id + '\', \'' + escHtml(name).replace(/'/g, "\\'") + '\')" style="background:rgba(239,68,68,0.1);border:none;color:#EF4444;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>' +
             '</div>';
           }).join('')
         }
@@ -3883,6 +4123,40 @@ async function previewImage(itemId, fileName) {
   }
 }
 
+async function previewDocument(itemId, fileName) {
+  try {
+    showLoading('Loading document...');
+    const resp = await fetch(API + '/vault/items/' + itemId + '/download', { headers: VaultAuth.headers() });
+    hideLoading();
+    if (!resp.ok) throw new Error('Failed to load document');
+    const text = await resp.text();
+    
+    // Create document viewer
+    const viewer = document.createElement('div');
+    viewer.id = 'document-viewer';
+    viewer.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10002;display:flex;flex-direction:column;padding:20px';
+    
+    viewer.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="color:#fff;font-size:16px;font-weight:500">📄 ${escHtml(fileName)}</div>
+        <div style="display:flex;gap:12px">
+          <button onclick="downloadFile('${itemId}')" style="background:rgba(245,166,35,0.2);border:none;color:#F5A623;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px">⬇️ Download</button>
+          <button onclick="document.getElementById('document-viewer').remove();" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px">&times;</button>
+        </div>
+      </div>
+      <div style="flex:1;background:#1a1a1a;border-radius:12px;overflow:auto;padding:20px">
+        <pre style="margin:0;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px;line-height:1.6;color:#e8e8e8;white-space:pre-wrap;word-wrap:break-word">${escHtml(text)}</pre>
+      </div>
+    `;
+    
+    document.body.appendChild(viewer);
+  } catch (e) {
+    hideLoading();
+    console.error('Document preview error:', e);
+    showToast('Failed to load document', 'error');
+  }
+}
+
 async function downloadFile(itemId) {
   try {
     const resp = await fetch(API + '/vault/items/' + itemId + '/download', { headers: VaultAuth.headers() });
@@ -3910,11 +4184,24 @@ function showFileActions(itemId, fileName, itemType) {
   menu.id = 'file-action-menu';
   menu.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0a0a0a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px;min-width:200px;z-index:10001;box-shadow:0 10px 40px rgba(0,0,0,0.5)';
   
-  const previewBtn = itemType === 'photo' ? `
-    <div onclick="previewImage('${itemId}', '${fileName.replace(/'/g, "\\'")}'); document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;gap:10px" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
-      <span>👁️</span> Preview
-    </div>
-  ` : '';
+  const isImage = itemType === 'photo' || fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
+  const isText = fileName.match(/\.(txt|md|json|js|py|css|html|xml|csv)$/i);
+  const isPdf = fileName.match(/\.pdf$/i);
+  
+  let previewBtn = '';
+  if (isImage) {
+    previewBtn = `
+      <div onclick="previewImage('${itemId}', '${fileName.replace(/'/g, "\\'")}'); document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;gap:10px" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+        <span>👁️</span> Preview
+      </div>
+    `;
+  } else if (isText) {
+    previewBtn = `
+      <div onclick="previewDocument('${itemId}', '${fileName.replace(/'/g, "\\'")}'); document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;gap:10px" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+        <span>📖</span> View
+      </div>
+    `;
+  }
   
   menu.innerHTML = `
     <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:4px">

@@ -161,6 +161,65 @@ MOLTBOT_TOOLS = [
             },
             "required": ["event_id"]
         }
+    },
+    {
+        "name": "analyze_vault_file",
+        "description": "Analyze an image or document from the user's vault using AI vision. Use when user wants to know what's in a photo, understand a document, or get insights about a file. Can describe images, read text in photos, analyze documents, etc.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_id": {
+                    "type": "string",
+                    "description": "The UUID of the vault file to analyze"
+                },
+                "question": {
+                    "type": "string",
+                    "description": "Optional specific question about the file. If not provided, gives general analysis."
+                }
+            },
+            "required": ["file_id"]
+        }
+    },
+    {
+        "name": "list_vault_files",
+        "description": "List recent files in the user's vault. Use this to see what files are available before analyzing them, or when user asks to see their files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_type": {
+                    "type": "string",
+                    "enum": ["photo", "document", "video", "all"],
+                    "description": "Filter by file type. Default is 'all'."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of files to return. Default is 10."
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "share_file_to_chat",
+        "description": "Share a vault file to a secure chat conversation. Use when user wants to send a photo or document to someone in their secure chat.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "file_id": {
+                    "type": "string",
+                    "description": "The UUID of the vault file to share"
+                },
+                "conversation_id": {
+                    "type": "string",
+                    "description": "The UUID of the chat conversation to share to"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Optional message to include with the file"
+                }
+            },
+            "required": ["file_id", "conversation_id"]
+        }
     }
 ]
 
@@ -186,6 +245,15 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: str, db) -> st
     
     elif tool_name == "delete_calendar_event":
         return await tool_delete_calendar_event(tool_input, user_id, db)
+    
+    elif tool_name == "analyze_vault_file":
+        return await tool_analyze_vault_file(tool_input, user_id, db)
+    
+    elif tool_name == "list_vault_files":
+        return await tool_list_vault_files(tool_input, user_id, db)
+    
+    elif tool_name == "share_file_to_chat":
+        return await tool_share_file_to_chat(tool_input, user_id, db)
     
     else:
         return f"Unknown tool: {tool_name}"
@@ -385,6 +453,212 @@ async def tool_delete_calendar_event(params: dict, user_id: str, db) -> str:
         return f"❌ Failed to delete event: {str(e)}"
 
 
+async def tool_list_vault_files(params: dict, user_id: str, db) -> str:
+    """List recent vault files."""
+    try:
+        file_type = params.get("file_type", "all")
+        limit = params.get("limit", 10)
+        
+        type_filter = ""
+        if file_type in ["photo", "document", "video"]:
+            type_filter = f"AND item_type = '{file_type}'"
+        
+        result = await db.execute(text(f"""
+            SELECT id, item_type, storage_key, file_size, mime_type, created_at
+            FROM vault_items
+            WHERE user_id = :user_id AND deleted_at IS NULL {type_filter}
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """), {"user_id": user_id, "limit": limit})
+        
+        items = result.fetchall()
+        
+        if not items:
+            return "📁 No files in your vault yet. Upload some photos or documents!"
+        
+        output = f"📁 **Your recent files ({len(items)}):**\n\n"
+        for item in items:
+            date_str = item.created_at.strftime("%Y-%m-%d %H:%M") if item.created_at else "Unknown"
+            size_kb = (item.file_size or 0) / 1024
+            filename = item.storage_key.split('/')[-1] if item.storage_key else "Unknown"
+            icon = "📷" if item.item_type == "photo" else "📄" if item.item_type == "document" else "🎥" if item.item_type == "video" else "📁"
+            # Include file ID so user/Moltbot can reference it
+            output += f"• {icon} **{filename}** — {date_str} ({size_kb:.0f} KB)\n"
+            output += f"  ID: `{item.id}`\n"
+        
+        output += "\n💡 *Tip: Use the file ID to analyze or share a file!*"
+        return output
+        
+    except Exception as e:
+        print(f"[Moltbot] List files error: {e}")
+        traceback.print_exc()
+        return f"❌ Failed to list files: {str(e)}"
+
+
+async def tool_analyze_vault_file(params: dict, user_id: str, db) -> str:
+    """Analyze a vault file using Claude's vision."""
+    try:
+        file_id = params.get("file_id")
+        question = params.get("question", "")
+        
+        # Get file metadata
+        result = await db.execute(text("""
+            SELECT id, item_type, storage_key, mime_type, file_size
+            FROM vault_items
+            WHERE id = :file_id AND user_id = :user_id AND deleted_at IS NULL
+        """), {"file_id": file_id, "user_id": user_id})
+        
+        item = result.fetchone()
+        if not item:
+            return f"❌ File not found. Use `list_vault_files` to see available files."
+        
+        # Check if it's an image (we can analyze)
+        mime = item.mime_type or ""
+        if not mime.startswith("image/"):
+            if mime.startswith("text/") or mime == "application/pdf":
+                return f"📄 This is a document ({mime}). Document analysis coming soon! For now, I can only analyze images."
+            return f"❌ Cannot analyze this file type ({mime}). I can analyze images (photos, screenshots, etc.)"
+        
+        # Retrieve file content from Albert Storage
+        try:
+            from storage_albert import retrieve_content
+            content = await retrieve_content(item.storage_key, user_id)
+        except Exception as e:
+            print(f"[Moltbot] Failed to retrieve file: {e}")
+            return f"❌ Could not retrieve file from storage: {str(e)}"
+        
+        # Encode as base64
+        import base64
+        image_data = base64.standard_b64encode(content).decode("utf-8")
+        
+        # Determine media type
+        media_type = mime if mime in ["image/jpeg", "image/png", "image/gif", "image/webp"] else "image/jpeg"
+        
+        # Build prompt
+        if question:
+            analysis_prompt = f"Analyze this image and answer the following question: {question}"
+        else:
+            analysis_prompt = "Analyze this image in detail. Describe what you see, any text visible, people, objects, location, mood, and anything interesting or notable."
+        
+        # Call Claude with vision
+        client = _get_anthropic()
+        if not client:
+            return "❌ AI service unavailable. Please try again later."
+        
+        try:
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1500,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_data
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": analysis_prompt
+                        }
+                    ]
+                }]
+            )
+            
+            analysis = response.content[0].text
+            filename = item.storage_key.split('/')[-1] if item.storage_key else "file"
+            
+            return f"🔍 **Analysis of {filename}:**\n\n{analysis}"
+            
+        except Exception as e:
+            print(f"[Moltbot] Vision API error: {e}")
+            traceback.print_exc()
+            return f"❌ Failed to analyze image: {str(e)}"
+        
+    except Exception as e:
+        print(f"[Moltbot] Analyze file error: {e}")
+        traceback.print_exc()
+        return f"❌ Failed to analyze file: {str(e)}"
+
+
+async def tool_share_file_to_chat(params: dict, user_id: str, db) -> str:
+    """Share a vault file to a secure chat conversation."""
+    try:
+        file_id = params.get("file_id")
+        conversation_id = params.get("conversation_id")
+        message_text = params.get("message", "")
+        
+        # Verify file exists and belongs to user
+        result = await db.execute(text("""
+            SELECT id, item_type, storage_key, mime_type, file_size
+            FROM vault_items
+            WHERE id = :file_id AND user_id = :user_id AND deleted_at IS NULL
+        """), {"file_id": file_id, "user_id": user_id})
+        
+        item = result.fetchone()
+        if not item:
+            return f"❌ File not found in your vault."
+        
+        # Verify user is member of conversation
+        member_check = await db.execute(text("""
+            SELECT 1 FROM chat_members WHERE conversation_id = CAST(:conv_id AS UUID) AND user_id = CAST(:user_id AS UUID)
+        """), {"conv_id": conversation_id, "user_id": user_id})
+        
+        if not member_check.fetchone():
+            return f"❌ You're not a member of that conversation."
+        
+        # Create message with file attachment
+        # The encrypted_media_ref will contain file reference info
+        # In real E2E encryption, this would be encrypted, but for now we use a simple JSON reference
+        import json as json_mod
+        media_ref = json_mod.dumps({
+            "vault_file_id": str(item.id),
+            "filename": item.storage_key.split('/')[-1] if item.storage_key else "file",
+            "mime_type": item.mime_type,
+            "file_size": item.file_size,
+            "item_type": item.item_type
+        })
+        
+        # Determine message type based on file
+        msg_type = "image" if item.item_type == "photo" else "file"
+        
+        # Insert message - use bytes for bytea columns
+        message_id = str(uuid.uuid4())
+        content_bytes = message_text.encode('utf-8') if message_text else b'\x00'
+        media_ref_bytes = media_ref.encode('utf-8')
+        
+        await db.execute(text("""
+            INSERT INTO chat_messages (id, conversation_id, sender_id, encrypted_content, message_type, encrypted_media_ref, created_at)
+            VALUES (:msg_id, CAST(:conv_id AS UUID), CAST(:user_id AS UUID), :content, :msg_type, :media_ref, NOW())
+        """), {
+            "msg_id": message_id,
+            "conv_id": conversation_id,
+            "user_id": user_id,
+            "content": content_bytes,
+            "msg_type": msg_type,
+            "media_ref": media_ref_bytes
+        })
+        
+        # Update conversation timestamp
+        await db.execute(text("""
+            UPDATE chat_conversations SET updated_at = NOW() WHERE id = CAST(:conv_id AS UUID)
+        """), {"conv_id": conversation_id})
+        
+        await db.commit()
+        
+        filename = item.storage_key.split('/')[-1] if item.storage_key else "file"
+        icon = "📷" if item.item_type == "photo" else "📄"
+        return f"✅ Shared {icon} **{filename}** to the conversation!"
+        
+    except Exception as e:
+        print(f"[Moltbot] Share file error: {e}")
+        traceback.print_exc()
+        return f"❌ Failed to share file: {str(e)}"
+
+
 # ===========================================
 # MOLTBOT SYSTEM PROMPT
 # ===========================================
@@ -409,6 +683,9 @@ def get_system_prompt():
 3. **Vault durchsuchen**: "Zeig mir Fotos vom Urlaub"
 4. **Vault-Statistiken**: "Wie viele Fotos habe ich?"
 5. **Events loeschen**: "Loesch den Meeting-Termin"
+6. **Dateien auflisten**: "Zeig mir meine Dateien" oder "Was hab ich hochgeladen?"
+7. **Bilder analysieren**: "Analysier dieses Foto" oder "Was ist auf dem Bild?"
+8. **Dateien im Chat teilen**: "Schick das Foto an [Person]"
 
 ## Wichtige Regeln
 - Nutze die Tools wenn der User eine Aktion ausfuehren will

@@ -520,7 +520,11 @@ async def download_item_content(
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Content not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Storage error: {str(e)}")
+        import traceback
+        print(f"[Download Error] item_id={item_id}, storage_key={item['storage_key']}, user_id={user_id}")
+        print(f"[Download Error] Exception type: {type(e).__name__}, message: {repr(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Storage error: {type(e).__name__}: {str(e)}")
     
     return Response(
         content=content,
