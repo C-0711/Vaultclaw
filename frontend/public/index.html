@@ -4434,6 +4434,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     initSettings();
     initSecureChat();
     initKeyboardShortcuts();
+    initDividerResize();
     loadVaultStats();
     loadRecentFiles();
     loadProcessingStatus();
@@ -6152,6 +6153,50 @@ function initKeyboardShortcuts() {
   });
 }
 
+// --- Panel Divider Resize ---
+function initDividerResize() {
+  const divider = document.getElementById('dp-divider');
+  const vaultPanel = document.getElementById('dp-vault');
+  const clawPanel = document.getElementById('dp-claw');
+  const shell = document.getElementById('dp-shell');
+  
+  if (!divider || !vaultPanel || !clawPanel) return;
+  
+  let isDragging = false;
+  let startX, startVaultWidth;
+  
+  divider.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startVaultWidth = vaultPanel.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const delta = e.clientX - startX;
+    const newWidth = Math.max(300, Math.min(startVaultWidth + delta, window.innerWidth - 350));
+    vaultPanel.style.flex = 'none';
+    vaultPanel.style.width = newWidth + 'px';
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+  
+  // Double-click to reset
+  divider.addEventListener('dblclick', () => {
+    vaultPanel.style.flex = '';
+    vaultPanel.style.width = '';
+  });
+}
+
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   const bgColor = type === 'error' ? 'rgba(239,68,68,0.9)' : type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(59,130,246,0.9)';
@@ -6580,6 +6625,7 @@ function initUploadButtons() {
         initSettings();
         initSecureChat();
         initKeyboardShortcuts();
+        initDividerResize();
         initFileManager();
         loadVaultStats();
         loadRecentFiles();
@@ -7231,15 +7277,19 @@ const ChatAttach = {
 };
 
 async function showVaultFilePicker() {
+  console.log('📎 showVaultFilePicker called');
   // Load files from vault
   try {
+    console.log('📎 Fetching files from:', API + '/vault/items?limit=50');
     const resp = await fetch(API + '/vault/items?limit=50', { headers: VaultAuth.headers() });
-    if (!resp.ok) throw new Error('Failed to load files');
+    console.log('📎 Response status:', resp.status);
+    if (!resp.ok) throw new Error('Failed to load files: ' + resp.status);
     const data = await resp.json();
+    console.log('📎 Files loaded:', data);
     const items = data.items || [];
     
     if (items.length === 0) {
-      showToast('No files in vault. Upload some files first!', 'info');
+      alert('Keine Dateien im Vault! Bitte erst hochladen.');
       return;
     }
     
