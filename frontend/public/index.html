@@ -3483,15 +3483,16 @@ async function loadRecentFiles() {
     container.style.padding = '0';
     container.style.textAlign = 'left';
     container.innerHTML = items.map(item => {
-      const icon = item.item_type === 'photo' ? '🖼️' : item.item_type === 'video' ? '🎥' : '📄';
+      const icon = item.item_type === 'photo' ? '🖼️' : item.item_type === 'video' ? '🎥' : item.item_type === 'audio' ? '🎵' : '📄';
       const size = item.file_size ? (item.file_size / 1024).toFixed(1) + ' KB' : '';
       const name = item.storage_key ? item.storage_key.split('/').pop() : 'File';
-      return `<div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;cursor:pointer" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+      return `<div onclick="showFileActions('${item.id}', '${escHtml(name).replace(/'/g, "\\'")}', '${item.item_type}')" style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;cursor:pointer" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
         <span style="font-size:18px">${icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,0.25)">${size}</div>
         </div>
+        <span style="font-size:10px;color:rgba(255,255,255,0.2)">⋯</span>
       </div>`;
     }).join('');
   } catch (e) {
@@ -3583,6 +3584,45 @@ async function downloadFile(itemId) {
     console.error('Download error:', e);
     showToast('Download failed', 'error');
   }
+}
+
+function showFileActions(itemId, fileName, itemType) {
+  // Remove any existing action menu
+  const existing = document.getElementById('file-action-menu');
+  if (existing) existing.remove();
+  
+  const menu = document.createElement('div');
+  menu.id = 'file-action-menu';
+  menu.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0a0a0a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px;min-width:200px;z-index:10001;box-shadow:0 10px 40px rgba(0,0,0,0.5)';
+  
+  menu.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:4px">
+      <div style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fileName}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">${itemType}</div>
+    </div>
+    <div onclick="downloadFile('${itemId}'); document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;gap:10px" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+      <span>⬇️</span> Download
+    </div>
+    <div onclick="deleteFile('${itemId}', '${fileName.replace(/'/g, "\\'")}'); document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:#EF4444;font-size:13px;display:flex;align-items:center;gap:10px" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background='transparent'">
+      <span>🗑️</span> Delete
+    </div>
+    <div onclick="document.getElementById('file-action-menu').remove();" style="padding:10px 16px;cursor:pointer;border-radius:6px;color:rgba(255,255,255,0.5);font-size:13px;text-align:center;margin-top:4px;border-top:1px solid rgba(255,255,255,0.06)" onmouseenter="this.style.background='rgba(255,255,255,0.03)'" onmouseleave="this.style.background='transparent'">
+      Cancel
+    </div>
+  `;
+  
+  document.body.appendChild(menu);
+  
+  // Close on outside click
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 100);
 }
 
 async function deleteFile(itemId, fileName) {
