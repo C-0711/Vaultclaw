@@ -2974,7 +2974,7 @@ body > div#root > div.min-h-screen > footer,
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Documents</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
+        <div id="folder-documents" style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
       </div>
     
       <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
@@ -2982,7 +2982,7 @@ body > div#root > div.min-h-screen > footer,
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B61FF" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Photos</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
+        <div id="folder-photos" style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
       </div>
     
       <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
@@ -2990,7 +2990,7 @@ body > div#root > div.min-h-screen > footer,
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00D68F" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Videos</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
+        <div id="folder-videos" style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
       </div>
     
       <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
@@ -2998,7 +2998,7 @@ body > div#root > div.min-h-screen > footer,
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:2px">Audio</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
+        <div id="folder-audio" style="font-size:11px;color:rgba(255,255,255,0.25)">0 files · 0 MB</div>
       </div>
     
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s" onmouseenter="this.style.borderColor='rgba(245,166,35,0.15)';this.style.background='rgba(245,166,35,0.04)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(255,255,255,0.03)'">
@@ -3368,16 +3368,63 @@ async function loadVaultStats() {
     if (docEl) docEl.textContent = data.documents || 0;
     if (eventEl) eventEl.textContent = '0'; // Events not in stats yet
     if (storageEl) storageEl.textContent = (data.total_gb || 0).toFixed(2) + ' GB';
+    
+    // Update Files view folder counts
+    const formatSize = (bytes) => {
+      if (!bytes || bytes === 0) return '0 MB';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    };
+    
+    const folderDocs = document.getElementById('folder-documents');
+    const folderPhotos = document.getElementById('folder-photos');
+    const folderVideos = document.getElementById('folder-videos');
+    const folderAudio = document.getElementById('folder-audio');
+    
+    if (folderDocs) folderDocs.textContent = `${data.documents || 0} files`;
+    if (folderPhotos) folderPhotos.textContent = `${data.photos || 0} files`;
+    if (folderVideos) folderVideos.textContent = `${data.videos || 0} files`;
+    if (folderAudio) folderAudio.textContent = '0 files'; // Audio not in stats yet
   } catch (e) {
     console.error('Failed to load vault stats:', e);
   }
 }
 
 // --- File Upload ---
+let uploadProgressEl = null;
+
+function showUploadProgress(current, total, filename) {
+  if (!uploadProgressEl) {
+    uploadProgressEl = document.createElement('div');
+    uploadProgressEl.style.cssText = 'position:fixed;bottom:70px;right:20px;padding:16px 20px;border-radius:12px;background:rgba(8,8,8,0.95);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:13px;z-index:10000;min-width:250px;backdrop-filter:blur(10px)';
+    document.body.appendChild(uploadProgressEl);
+  }
+  uploadProgressEl.innerHTML = `
+    <div style="margin-bottom:8px;font-weight:500">Uploading ${current}/${total}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${filename}</div>
+    <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:4px;overflow:hidden">
+      <div style="background:#F5A623;height:100%;width:${(current/total)*100}%;transition:width 0.3s"></div>
+    </div>
+  `;
+}
+
+function hideUploadProgress() {
+  if (uploadProgressEl) {
+    uploadProgressEl.remove();
+    uploadProgressEl = null;
+  }
+}
+
 async function uploadFiles(files) {
   if (!files || files.length === 0) return;
   
+  const total = files.length;
+  let current = 0;
+  
   for (const file of files) {
+    current++;
+    showUploadProgress(current, total, file.name);
+    
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -3403,12 +3450,14 @@ async function uploadFiles(files) {
       
       const data = await resp.json();
       console.log('Uploaded:', file.name, data);
-      showToast('Uploaded: ' + file.name, 'success');
     } catch (e) {
       console.error('Upload error:', e);
       showToast('Upload error: ' + file.name, 'error');
     }
   }
+  
+  hideUploadProgress();
+  showToast(`Uploaded ${total} file${total > 1 ? 's' : ''} successfully!`, 'success');
   
   // Refresh stats and files after upload
   loadVaultStats();
