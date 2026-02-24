@@ -3756,6 +3756,444 @@ body > div#root > div.min-h-screen > footer,
   gap: 10px;
 }
 
+/* ===== VAULT CLAW — LIGHT THEME ===== */
+/* Applied when body has class 'vc-light' */
+
+/* Theme toggle */
+.vc-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-right: 12px;
+  transition: all 0.3s ease;
+}
+.vc-theme-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.15);
+  position: relative;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+body.vc-light .vc-theme-track {
+  background: #E5E7EB;
+  border-color: #D1D5DB;
+}
+.vc-theme-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.vc-light .vc-theme-knob {
+  left: 17px;
+  background: #1A1A1A;
+}
+.vc-theme-knob svg {
+  width: 10px;
+  height: 10px;
+  stroke: rgba(255,255,255,0.9) !important;
+  fill: none;
+}
+body.vc-light .vc-theme-knob svg {
+  stroke: #FFFFFF !important;
+}
+
+/* Smooth transition for theme switching */
+#dp-shell, #dp-shell *, .dp-topbar, .dp-nav, .dp-vault, #dp-claw {
+  transition: background-color 0.3s ease, color 0.2s ease, border-color 0.3s ease;
+}
+
+/* Base shell */
+body.vc-light #dp-shell {
+  background: #F8F9FA !important;
+  color: #1A1A1A !important;
+}
+
+/* Top bar */
+body.vc-light #dp-topbar {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+body.vc-light #dp-topbar * {
+  color: #1A1A1A !important;
+}
+body.vc-light .dp-logo-text {
+  color: #0A0A0A !important;
+}
+body.vc-light .dp-edition {
+  background: #0A0A0A !important;
+  color: #FFFFFF !important;
+  border-color: #0A0A0A !important;
+}
+
+/* Left navigation */
+body.vc-light .dp-panel-nav {
+  background: #FFFFFF !important;
+  border-right: 1px solid #E5E7EB !important;
+}
+body.vc-light .dp-nav-btn {
+  color: #6B7280 !important;
+}
+body.vc-light .dp-nav-btn:hover {
+  background: #F3F4F6 !important;
+}
+body.vc-light .dp-nav-btn.active {
+  background: #F3F4F6 !important;
+}
+body.vc-light .dp-nav-btn svg {
+  stroke: #6B7280 !important;
+}
+body.vc-light .dp-nav-btn:hover svg,
+body.vc-light .dp-nav-btn.active svg {
+  stroke: #1A1A1A !important;
+}
+
+/* Vault content area */
+body.vc-light .dp-panel-content,
+body.vc-light .vault-full,
+body.vc-light .settings-view,
+body.vc-light #vault-files-view,
+body.vc-light #vault-calendar-view,
+body.vc-light #vault-secure-view {
+  background: #F8F9FA !important;
+  color: #1A1A1A !important;
+}
+
+/* Stats and cards */
+body.vc-light .vault-stat {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .vault-stat:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .vault-stat .vs-val {
+  color: #1A1A1A !important;
+}
+body.vc-light .vault-stat .vs-label {
+  color: #6B7280 !important;
+}
+
+/* Action cards */
+body.vc-light .vault-action {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .vault-action:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .vault-action .va-title {
+  color: #1A1A1A !important;
+}
+body.vc-light .vault-action .va-desc {
+  color: #6B7280 !important;
+}
+
+/* Storage */
+body.vc-light .vault-storage {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .vault-storage span {
+  color: #1A1A1A !important;
+}
+body.vc-light .vault-storage-bar {
+  background: #E5E7EB !important;
+}
+body.vc-light .vault-storage-text span {
+  color: #6B7280 !important;
+}
+
+/* Events/Calendar card */
+body.vc-light .vault-events {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .vault-events span {
+  color: #1A1A1A !important;
+}
+
+/* File Manager */
+body.vc-light .file-manager {
+  background: #F8F9FA !important;
+}
+body.vc-light .fm-header {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
+}
+body.vc-light .fm-breadcrumb {
+  color: #6B7280 !important;
+}
+body.vc-light .fm-breadcrumb.active {
+  color: #1A1A1A !important;
+}
+body.vc-light .fm-search {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+  color: #1A1A1A !important;
+}
+body.vc-light .fm-btn {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+  color: #374151 !important;
+}
+body.vc-light .fm-btn:hover {
+  background: #E5E7EB !important;
+}
+body.vc-light .fm-btn-primary {
+  background: #0A0A0A !important;
+  color: #FFFFFF !important;
+  border: none !important;
+}
+body.vc-light .fm-btn-primary:hover {
+  background: #1F2937 !important;
+}
+body.vc-light .fm-item {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .fm-item:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .fm-item-name {
+  color: #1A1A1A !important;
+}
+body.vc-light .fm-item-meta {
+  color: #9CA3AF !important;
+}
+body.vc-light .fm-storage-bar {
+  background: #FFFFFF !important;
+}
+body.vc-light .fm-storage-progress {
+  background: #E5E7EB !important;
+}
+body.vc-light .fm-storage-text {
+  color: #6B7280 !important;
+}
+
+/* Calendar */
+body.vc-light #v-calendar {
+  background: #F8F9FA !important;
+}
+body.vc-light #cal-header {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
+}
+body.vc-light #cal-header * {
+  color: #1A1A1A !important;
+}
+body.vc-light .cal-day {
+  background: #FFFFFF !important;
+  border: 1px solid #F3F4F6 !important;
+  color: #1A1A1A !important;
+}
+body.vc-light .cal-day:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .cal-day.today {
+  background: #FEF3C7 !important;
+}
+body.vc-light .cal-day.other-month {
+  color: #D1D5DB !important;
+}
+body.vc-light .cal-sidebar {
+  background: #FFFFFF !important;
+  border-left: 1px solid #E5E7EB !important;
+}
+body.vc-light .cal-sidebar * {
+  color: #1A1A1A !important;
+}
+body.vc-light .cal-nav-btn {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .cal-today-btn {
+  background: #F3F4F6 !important;
+  color: #374151 !important;
+}
+body.vc-light .cal-add-btn {
+  background: #0A0A0A !important;
+  color: #FFFFFF !important;
+}
+
+/* Secure Chat */
+body.vc-light .sc-sidebar {
+  background: #FFFFFF !important;
+  border-right: 1px solid #E5E7EB !important;
+}
+body.vc-light .sc-sidebar * {
+  color: #1A1A1A !important;
+}
+body.vc-light .sc-conv-item {
+  border-bottom: 1px solid #F3F4F6 !important;
+}
+body.vc-light .sc-conv-item:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .sc-conv-item.active {
+  background: #F3F4F6 !important;
+}
+body.vc-light .sc-chat-area {
+  background: #F8F9FA !important;
+}
+body.vc-light .sc-chat-header {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
+}
+body.vc-light .sc-chat-header * {
+  color: #1A1A1A !important;
+}
+body.vc-light #sc-messages {
+  background: #F8F9FA !important;
+}
+body.vc-light .sc-msg-bubble {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  color: #1A1A1A !important;
+}
+body.vc-light #sc-input-area {
+  background: #FFFFFF !important;
+  border-top: 1px solid #E5E7EB !important;
+}
+body.vc-light #sc-msg-input {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+  color: #1A1A1A !important;
+}
+
+/* Settings */
+body.vc-light .sv-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .sv-label {
+  color: #374151 !important;
+}
+body.vc-light .sv-desc {
+  color: #9CA3AF !important;
+}
+body.vc-light .sv-select {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+  color: #1A1A1A !important;
+}
+body.vc-light .sv-provider {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .sv-provider:hover {
+  background: #F9FAFB !important;
+}
+body.vc-light .sv-provider.selected {
+  border-color: #F5A623 !important;
+}
+body.vc-light .sv-provider .svp-name {
+  color: #1A1A1A !important;
+}
+body.vc-light .sv-provider .svp-model {
+  color: #6B7280 !important;
+}
+
+/* OpenClaw panel */
+body.vc-light #dp-claw {
+  background: #FFFFFF !important;
+}
+body.vc-light .claw-full,
+body.vc-light .claw-summary {
+  background: #F8F9FA !important;
+}
+body.vc-light .claw-header h2,
+body.vc-light .claw-sum-header h3 {
+  color: #1A1A1A !important;
+}
+body.vc-light .claw-welcome .cw-title {
+  color: #1A1A1A !important;
+}
+body.vc-light .claw-welcome .cw-sub {
+  color: #6B7280 !important;
+}
+body.vc-light .claw-chip {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  color: #374151 !important;
+}
+body.vc-light .claw-chip:hover {
+  background: #F3F4F6 !important;
+}
+body.vc-light .claw-input-bar {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .claw-input-bar input {
+  color: #1A1A1A !important;
+}
+body.vc-light .claw-input-bar input::placeholder {
+  color: #9CA3AF !important;
+}
+body.vc-light .claw-sum-input-bar {
+  background: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.vc-light .claw-sum-input-bar input {
+  color: #1A1A1A !important;
+}
+
+/* Divider */
+body.vc-light #dp-divider {
+  background: #E5E7EB !important;
+}
+body.vc-light #dp-divider:hover {
+  background: #D1D5DB !important;
+}
+
+/* Bottom bar */
+body.vc-light #dp-bottom {
+  background: #FFFFFF !important;
+  border-top: 1px solid #E5E7EB !important;
+}
+body.vc-light #dp-bottom span {
+  color: #9CA3AF !important;
+}
+
+/* Scrollbar for light mode */
+body.vc-light ::-webkit-scrollbar-track {
+  background: #F3F4F6 !important;
+}
+body.vc-light ::-webkit-scrollbar-thumb {
+  background: #D1D5DB !important;
+}
+body.vc-light ::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF !important;
+}
+
+/* Toast notifications */
+body.vc-light .toast {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  color: #1A1A1A !important;
+}
+
+/* Modals */
+body.vc-light .modal-content,
+body.vc-light [style*="background:#0a0a0a"],
+body.vc-light [style*="background: #0a0a0a"] {
+  background: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+}
+
 </style>
 </head>
 <body>
@@ -3779,6 +4217,11 @@ body > div#root > div.min-h-screen > footer,
     <div class="dp-logo-icon">07</div>
     <div class="dp-logo-text">0711</div>
     <div class="dp-edition">VAULT EDITION</div>
+  </div>
+  <div class="vc-theme-toggle" id="vc-theme-toggle" title="Toggle Light/Dark Mode">
+    <div class="vc-theme-track">
+      <div class="vc-theme-knob"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div>
+    </div>
   </div>
   <div class="dp-status">
     <span><span class="dp-dot"></span> OpenClaw H200V</span>
@@ -4617,6 +5060,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     initSecureChat();
     initKeyboardShortcuts();
     initDividerResize();
+    initThemeToggle();
     loadVaultStats();
     loadRecentFiles();
     loadProcessingStatus();
@@ -6389,6 +6833,38 @@ function initDividerResize() {
   });
 }
 
+// --- Theme Toggle ---
+function initThemeToggle() {
+  const toggle = document.getElementById('vc-theme-toggle');
+  if (!toggle) return;
+  
+  // Load saved preference
+  const savedTheme = localStorage.getItem('vaultclaw-theme');
+  if (savedTheme === 'light') {
+    document.body.classList.add('vc-light');
+    updateThemeIcon(true);
+  }
+  
+  toggle.addEventListener('click', () => {
+    const isLight = document.body.classList.toggle('vc-light');
+    localStorage.setItem('vaultclaw-theme', isLight ? 'light' : 'dark');
+    updateThemeIcon(isLight);
+  });
+}
+
+function updateThemeIcon(isLight) {
+  const knob = document.querySelector('.vc-theme-knob');
+  if (!knob) return;
+  
+  if (isLight) {
+    // Sun icon for light mode
+    knob.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+  } else {
+    // Moon icon for dark mode
+    knob.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+  }
+}
+
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   const bgColor = type === 'error' ? 'rgba(239,68,68,0.9)' : type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(59,130,246,0.9)';
@@ -6818,6 +7294,7 @@ function initUploadButtons() {
         initSecureChat();
         initKeyboardShortcuts();
         initDividerResize();
+        initThemeToggle();
         initFileManager();
         loadVaultStats();
         loadRecentFiles();
