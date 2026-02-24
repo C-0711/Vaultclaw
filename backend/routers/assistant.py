@@ -165,13 +165,13 @@ async def build_context(query: str, user_id: str, db, neo4j) -> Dict[str, Any]:
         return context
 
     try:
-        embedding_response = await ollama.embeddings(
-            model=settings.EMBEDDING_MODEL,
-            prompt=query
+        embedding_response = await asyncio.wait_for(
+            ollama.embeddings(model=settings.EMBEDDING_MODEL, prompt=query),
+            timeout=5.0
         )
         query_embedding = embedding_response['embedding']
-    except Exception as e:
-        print(f"[Moltbot] Embedding error: {e}")
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[Moltbot] Embedding error (skipping context): {e}")
         return context
 
     # 2. Semantic search in PostgreSQL (pgvector)
