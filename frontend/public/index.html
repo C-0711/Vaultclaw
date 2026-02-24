@@ -3212,6 +3212,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     document.getElementById('dp-shell').style.display = '';
     initMoltbot();
     initUploadButtons();
+    initCalendar();
     loadVaultStats();
     loadRecentFiles();
   } catch (e) {
@@ -3695,6 +3696,75 @@ function showToast(message, type = 'info') {
   setTimeout(() => toast.remove(), 3000);
 }
 
+// --- Calendar ---
+let calendarDate = new Date();
+
+function renderCalendar() {
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const today = new Date();
+  
+  // Update title
+  const title = document.getElementById('cal-month-title');
+  if (title) {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    title.textContent = monthNames[month] + ' ' + year;
+  }
+  
+  // Get first day of month and number of days
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  
+  // Adjust for Monday start (0 = Mon, 6 = Sun)
+  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+  
+  const container = document.getElementById('cal-days');
+  if (!container) return;
+  
+  let html = '';
+  
+  // Previous month days
+  for (let i = startOffset - 1; i >= 0; i--) {
+    html += `<div class="cal-day other-month"><span class="cal-day-num">${daysInPrevMonth - i}</span></div>`;
+  }
+  
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    html += `<div class="cal-day${isToday ? ' today' : ''}" data-day="${d}"><span class="cal-day-num">${d}</span></div>`;
+  }
+  
+  // Next month days (fill to 42 cells = 6 rows)
+  const totalCells = startOffset + daysInMonth;
+  const remaining = totalCells > 35 ? 42 - totalCells : 35 - totalCells;
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="cal-day other-month"><span class="cal-day-num">${i}</span></div>`;
+  }
+  
+  container.innerHTML = html;
+  
+  // Update sidebar date
+  const monthNames2 = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const sidebarTitle = document.querySelector('#vault-calendar-view h4');
+  if (sidebarTitle) {
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    sidebarTitle.nextElementSibling && (sidebarTitle.nextElementSibling.textContent = dayNames[today.getDay()] + ', ' + monthNames2[today.getMonth()] + ' ' + today.getDate());
+  }
+}
+
+function initCalendar() {
+  const prevBtn = document.getElementById('cal-prev');
+  const nextBtn = document.getElementById('cal-next');
+  const todayBtn = document.getElementById('cal-today-btn');
+  
+  if (prevBtn) prevBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); };
+  if (nextBtn) nextBtn.onclick = () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); };
+  if (todayBtn) todayBtn.onclick = () => { calendarDate = new Date(); renderCalendar(); };
+  
+  renderCalendar();
+}
+
 // --- Wire Upload Buttons ---
 function initUploadButtons() {
   const fileInput = document.getElementById('file-upload-input');
@@ -3729,6 +3799,7 @@ function initUploadButtons() {
         document.getElementById('dp-shell').style.display = '';
         initMoltbot();
         initUploadButtons();
+        initCalendar();
         loadVaultStats();
         loadRecentFiles();
         return;
