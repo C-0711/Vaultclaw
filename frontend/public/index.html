@@ -3386,6 +3386,17 @@ async function loadVaultStats() {
     if (folderPhotos) folderPhotos.textContent = `${data.photos || 0} files`;
     if (folderVideos) folderVideos.textContent = `${data.videos || 0} files`;
     if (folderAudio) folderAudio.textContent = '0 files'; // Audio not in stats yet
+    
+    // Update storage bar (5 GB limit)
+    const maxGB = 5;
+    const usedGB = data.total_gb || 0;
+    const percentage = Math.min((usedGB / maxGB) * 100, 100);
+    const storageFill = document.querySelector('.vault-storage-fill');
+    if (storageFill) storageFill.style.width = Math.max(percentage, 0.1) + '%';
+    
+    // Update secondary storage display in vault dashboard
+    const storageVal = document.querySelector('.vault-storage span:first-child');
+    if (storageVal) storageVal.textContent = usedGB.toFixed(2) + ' GB';
   } catch (e) {
     console.error('Failed to load vault stats:', e);
   }
