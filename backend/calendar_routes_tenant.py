@@ -79,6 +79,19 @@ async def get_current_user(authorization: str = Header(None)):
     raise HTTPException(status_code=401, detail="Invalid token")
 
 
+def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+    """Parse ISO date string to datetime."""
+    if not date_str:
+        return None
+    try:
+        if 'T' in date_str:
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        else:
+            return datetime.fromisoformat(date_str + 'T00:00:00')
+    except ValueError:
+        return datetime.now()
+
+
 async def ensure_table():
     """Create calendar_events table if not exists."""
     db = await get_db()
@@ -115,6 +128,8 @@ async def list_events(
     
     async with db.acquire() as conn:
         if start and end:
+            start_dt = parse_date(start)
+            end_dt = parse_date(end)
             events = await conn.fetch("""
                 SELECT id, title, event_date as date, end_date, all_day, color,
                        description, location, encrypted_data, recurring,
@@ -122,7 +137,7 @@ async def list_events(
                 FROM calendar_events
                 WHERE user_id = $1 AND event_date >= $2 AND event_date <= $3
                 ORDER BY event_date ASC
-            """, user_id, start, end)
+            """, user_id, start_dt, end_dt)
         else:
             events = await conn.fetch("""
                 SELECT id, title, event_date as date, end_date, all_day, color,
@@ -162,6 +177,10 @@ async def create_event(event: EventCreate, user_id: str = Depends(get_current_us
     """Create a new event."""
     db = await get_db()
     
+    # Parse date strings
+    event_date = parse_date(event.date)
+    end_date = parse_date(event.end_date)
+    
     async with db.acquire() as conn:
         event_id = await conn.fetchval("""
             INSERT INTO calendar_events (
@@ -169,7 +188,7 @@ async def create_event(event: EventCreate, user_id: str = Depends(get_current_us
                 description, location, encrypted_data, recurring
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id
-        """, user_id, event.title, event.date, event.end_date, event.all_day,
+        """, user_id, event.title, event_date, end_date, event.all_day,
              event.color, event.description, event.location, 
              event.encrypted_data, event.recurring)
         
@@ -240,7 +259,7 @@ async def get_today_events(user_id: str = Depends(get_current_user)):
     """Get all events for today."""
     db = await get_db()
     
-    today = datetime.utcnow().date()
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today + timedelta(days=1)
     
     async with db.acquire() as conn:
@@ -250,7 +269,7 @@ async def get_today_events(user_id: str = Depends(get_current_user)):
             FROM calendar_events
             WHERE user_id = $1 AND event_date >= $2 AND event_date < $3
             ORDER BY event_date ASC
-        """, user_id, today.isoformat(), tomorrow.isoformat())
+        """, user_id, today, tomorrow)
         
         return {"events": [dict(e) for e in events], "date": today.isoformat()}
 
@@ -274,7 +293,7 @@ async def get_upcoming_events(
             WHERE user_id = $1 AND event_date >= $2 AND event_date <= $3
             ORDER BY event_date ASC
             LIMIT 20
-        """, user_id, now.isoformat(), end.isoformat())
+        """, user_id, now, end)
         
         return {"events": [dict(e) for e in events], "days": days}
 

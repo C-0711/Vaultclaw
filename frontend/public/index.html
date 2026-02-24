@@ -3830,14 +3830,14 @@ async function browseFolder(itemType) {
             const size = item.file_size ? (item.file_size < 1024*1024 ? (item.file_size/1024).toFixed(1)+' KB' : (item.file_size/(1024*1024)).toFixed(1)+' MB') : '';
             const date = item.created_at ? new Date(item.created_at).toLocaleDateString() : '';
             const itemIcon = getIcon(item.item_type);
-            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;transition:0.2s" onmouseenter="this.style.background=\\'rgba(255,255,255,0.05)\\'" onmouseleave="this.style.background=\\'transparent\\'">' +
+            return '<div style="padding:12px 16px;border-radius:8px;margin-bottom:4px;display:flex;align-items:center;gap:12px;transition:0.2s" onmouseenter="this.style.background=\'rgba(255,255,255,0.05)\'" onmouseleave="this.style.background=\'transparent\'">' +
               '<span style="font-size:20px">' + itemIcon + '</span>' +
               '<div style="flex:1;min-width:0">' +
                 '<div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(name) + '</div>' +
                 '<div style="font-size:11px;color:rgba(255,255,255,0.3)">' + size + (date ? ' · ' + date : '') + '</div>' +
               '</div>' +
-              '<button onclick="downloadFile(\\'' + item.id + '\\')" style="background:rgba(245,166,35,0.1);border:none;color:#F5A623;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download</button>' +
-              '<button onclick="deleteFile(\\'' + item.id + '\\', \\'' + escHtml(name).replace(/'/g, "\\\\'") + '\\')" style="background:rgba(239,68,68,0.1);border:none;color:#EF4444;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>' +
+              '<button onclick="downloadFile(\'' + item.id + '\')" style="background:rgba(245,166,35,0.1);border:none;color:#F5A623;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download</button>' +
+              '<button onclick="deleteFile(\'' + item.id + '\', \'' + escHtml(name).replace(/'/g, "\\'") + '\')" style="background:rgba(239,68,68,0.1);border:none;color:#EF4444;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Delete</button>' +
             '</div>';
           }).join('')
         }
