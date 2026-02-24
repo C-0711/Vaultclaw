@@ -2426,30 +2426,31 @@ body > div#root > div.min-h-screen > footer,
 <p class="vault-sub">Everything secure, in one place</p>
 
 <div class="vault-stat-grid">
-  <div class="vault-stat">
+  <div class="vault-stat" style="cursor:pointer" onclick="switchView('files-view')">
     <div class="vs-icon" style="background:rgba(59,130,246,0.1)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="M21 15l-5-5L5 21"></path></svg></div>
-    <div class="vs-val">0</div>
+    <div class="vs-val" id="stat-photos">0</div>
     <div class="vs-label">Photos</div>
   </div>
-  <div class="vault-stat">
+  <div class="vault-stat" style="cursor:pointer" onclick="switchView('files-view')">
     <div class="vs-icon" style="background:rgba(168,85,247,0.1)"><svg style="stroke:#A855F7" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div>
-    <div class="vs-val">0</div>
+    <div class="vs-val" id="stat-documents">0</div>
     <div class="vs-label">Documents</div>
   </div>
-  <div class="vault-stat">
+  <div class="vault-stat" style="cursor:pointer" onclick="switchView('calendar-view')">
     <div class="vs-icon" style="background:rgba(34,197,94,0.1)"><svg style="stroke:#22C55E" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
-    <div class="vs-val">0</div>
+    <div class="vs-val" id="stat-events">0</div>
     <div class="vs-label">Events</div>
   </div>
   <div class="vault-stat">
     <div class="vs-icon" style="background:rgba(245,166,35,0.1)"><svg style="stroke:#F5A623" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg></div>
-    <div class="vs-val">0.00 GB</div>
+    <div class="vs-val" id="stat-storage">0.00 GB</div>
     <div class="vs-label">of 5 GB</div>
   </div>
 </div>
 
+<input type="file" id="file-upload-input" multiple accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none">
 <div class="vault-actions">
-  <div class="vault-action">
+  <div class="vault-action" id="btn-upload-dashboard" style="cursor:pointer">
     <div class="va-icon" style="background:rgba(59,130,246,0.08)"><svg style="stroke:#3B82F6" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
     <div><div class="va-title">Upload</div><div class="va-desc">Photos &amp; files</div></div>
   </div>
@@ -2515,7 +2516,7 @@ body > div#root > div.min-h-screen > footer,
     <div class="sv-provider" data-llm="anthropic">
       <div class="svp-icon" style="background:rgba(204,169,114,0.15);color:#CCA972">C</div>
       <div class="svp-name">Anthropic</div>
-      <div class="svp-model">Claude 3.5 Sonnet</div>
+      <div class="svp-model">Claude Sonnet 4</div>
     </div>
     <div class="sv-provider" data-llm="openai">
       <div class="svp-icon" style="background:rgba(116,185,141,0.15);color:#74B98D">G</div>
@@ -2547,15 +2548,15 @@ body > div#root > div.min-h-screen > footer,
     <div class="sv-row">
       <div><div class="sv-label">Active Model</div><div class="sv-desc">Used for chat, analysis, and agent tasks</div></div>
       <select class="sv-select">
-        <option>Claude 3.5 Sonnet</option>
-        <option>Claude 3 Opus</option>
-        <option>Claude 3 Haiku</option>
+        <option>Claude Sonnet 4</option>
+        <option>Claude Opus 4</option>
+        <option>Claude Haiku 3.5</option>
       </select>
     </div>
     <div class="sv-row">
       <div><div class="sv-label">Vision Model</div><div class="sv-desc">Photo analysis, face recognition, scene detection</div></div>
       <select class="sv-select">
-        <option>Claude 3.5 Sonnet (Vision)</option>
+        <option>Claude Sonnet 4 (Vision)</option>
         <option>GPT-4o Vision</option>
         <option>Gemini 2.0 Flash</option>
       </select>
@@ -2962,7 +2963,7 @@ body > div#root > div.min-h-screen > footer,
       <h2 style="font-size:22px;font-weight:600;color:#fff;margin:0 0 4px 0">Files</h2>
       <p style="font-size:13px;color:rgba(255,255,255,0.35);margin:0">Encrypted file storage — 100% local</p>
     </div>
-    <button style="padding:8px 16px;border-radius:10px;background:#F5A623;border:none;color:#080808;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+    <button id="btn-upload-files" style="padding:8px 16px;border-radius:10px;background:#F5A623;border:none;color:#080808;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Upload
     </button>
   </div>
@@ -3023,7 +3024,7 @@ body > div#root > div.min-h-screen > footer,
       <span style="font-size:12px;color:rgba(245,166,35,0.6);cursor:pointer">View all</span>
     </div>
 
-    <div style="padding:20px;text-align:center;color:rgba(255,255,255,0.15);font-size:13px">No files uploaded yet</div>
+    <div id="recent-files-list" style="padding:20px;text-align:center;color:rgba(255,255,255,0.15);font-size:13px">No files uploaded yet</div>
   </div>
 </div></div></div>
   </div>
@@ -3210,6 +3211,9 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('dp-shell').style.display = '';
     initMoltbot();
+    initUploadButtons();
+    loadVaultStats();
+    loadRecentFiles();
   } catch (e) {
     errEl.textContent = 'Login failed — check your credentials.';
     errEl.style.display = 'block';
@@ -3347,6 +3351,138 @@ function initMoltbot() {
   });
 }
 
+// --- Vault Stats ---
+async function loadVaultStats() {
+  try {
+    const resp = await fetch(API + '/vault/stats', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    // Update dashboard stats
+    const photoEl = document.getElementById('stat-photos');
+    const docEl = document.getElementById('stat-documents');
+    const eventEl = document.getElementById('stat-events');
+    const storageEl = document.getElementById('stat-storage');
+    
+    if (photoEl) photoEl.textContent = data.photos || 0;
+    if (docEl) docEl.textContent = data.documents || 0;
+    if (eventEl) eventEl.textContent = '0'; // Events not in stats yet
+    if (storageEl) storageEl.textContent = (data.total_gb || 0).toFixed(2) + ' GB';
+  } catch (e) {
+    console.error('Failed to load vault stats:', e);
+  }
+}
+
+// --- File Upload ---
+async function uploadFiles(files) {
+  if (!files || files.length === 0) return;
+  
+  for (const file of files) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Determine item type
+      let itemType = 'document';
+      if (file.type.startsWith('image/')) itemType = 'photo';
+      else if (file.type.startsWith('video/')) itemType = 'video';
+      else if (file.type.startsWith('audio/')) itemType = 'audio';
+      
+      const resp = await fetch(API + '/vault/upload?item_type=' + itemType, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + VaultAuth.getToken() },
+        body: formData
+      });
+      
+      if (!resp.ok) {
+        const err = await resp.text();
+        console.error('Upload failed:', err);
+        showToast('Upload failed: ' + file.name, 'error');
+        continue;
+      }
+      
+      const data = await resp.json();
+      console.log('Uploaded:', file.name, data);
+      showToast('Uploaded: ' + file.name, 'success');
+    } catch (e) {
+      console.error('Upload error:', e);
+      showToast('Upload error: ' + file.name, 'error');
+    }
+  }
+  
+  // Refresh stats and files after upload
+  loadVaultStats();
+  loadRecentFiles();
+}
+
+// --- Recent Files ---
+async function loadRecentFiles() {
+  try {
+    const resp = await fetch(API + '/vault/items?limit=5', { headers: VaultAuth.headers() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    
+    const container = document.getElementById('recent-files-list');
+    if (!container) return;
+    
+    const items = data.items || data || [];
+    if (items.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.15);font-size:13px">No files uploaded yet</div>';
+      return;
+    }
+    
+    container.style.padding = '0';
+    container.style.textAlign = 'left';
+    container.innerHTML = items.map(item => {
+      const icon = item.item_type === 'photo' ? '🖼️' : item.item_type === 'video' ? '🎥' : '📄';
+      const size = item.file_size ? (item.file_size / 1024).toFixed(1) + ' KB' : '';
+      const name = item.storage_key ? item.storage_key.split('/').pop() : 'File';
+      return `<div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:10px;cursor:pointer" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+        <span style="font-size:18px">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.25)">${size}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load recent files:', e);
+  }
+}
+
+// --- Toast Notifications ---
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  const bgColor = type === 'error' ? 'rgba(239,68,68,0.9)' : type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(59,130,246,0.9)';
+  toast.style.cssText = `position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:8px;background:${bgColor};color:#fff;font-size:13px;z-index:10000;animation:fadeIn 0.3s`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// --- Wire Upload Buttons ---
+function initUploadButtons() {
+  const fileInput = document.getElementById('file-upload-input');
+  if (!fileInput) return;
+  
+  fileInput.addEventListener('change', (e) => {
+    uploadFiles(e.target.files);
+    e.target.value = ''; // Reset for next upload
+  });
+  
+  // Dashboard upload button
+  const dashBtn = document.getElementById('btn-upload-dashboard');
+  if (dashBtn) {
+    dashBtn.addEventListener('click', () => fileInput.click());
+  }
+  
+  // Files view upload button
+  const filesBtn = document.getElementById('btn-upload-files');
+  if (filesBtn) {
+    filesBtn.addEventListener('click', () => fileInput.click());
+  }
+}
+
 // --- Bootstrap: auto-login if token exists ---
 (async function() {
   const token = VaultAuth.getToken();
@@ -3357,6 +3493,9 @@ function initMoltbot() {
         document.getElementById('login-overlay').style.display = 'none';
         document.getElementById('dp-shell').style.display = '';
         initMoltbot();
+        initUploadButtons();
+        loadVaultStats();
+        loadRecentFiles();
         return;
       }
     } catch (e) {}
