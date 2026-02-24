@@ -4297,10 +4297,12 @@ body > div#root > div.min-h-screen > footer,
           </div>
         </div>
         <div class="claw-input-wrap">
+          <!-- Attached files preview -->
+          <div id="claw-attached-files" style="display:none;padding:0 0 8px;display:flex;gap:8px;flex-wrap:wrap"></div>
           <div class="claw-input-bar">
             <input type="text" placeholder="Ask about your photos, documents, or memories...">
-            <button class="claw-input-btn"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg></button>
-            <button class="claw-input-btn"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path><path d="M19 10v2a7 7 0 01-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
+            <button class="claw-input-btn" onclick="showVaultFilePicker()" title="Attach file from vault"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg></button>
+            <button class="claw-input-btn" title="Voice input (coming soon)"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path><path d="M19 10v2a7 7 0 01-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg></button>
             <button class="claw-input-btn send"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
           </div>
         </div>
@@ -4535,8 +4537,22 @@ async function sendChat(msg, msgContainer, input) {
   if (moltStreaming || !msg.trim()) return;
   moltStreaming = true;
 
+  // Include attached files in message
+  let enhancedMsg = msg;
+  let displayMsg = msg;
+  if (ChatAttach && ChatAttach.files && ChatAttach.files.length > 0) {
+    const fileContext = ChatAttach.files.map(f => 
+      `[Attached file: "${f.name}" (ID: ${f.id}, type: ${f.type})]`
+    ).join('\n');
+    enhancedMsg = `${fileContext}\n\nUser message: ${msg}`;
+    displayMsg = msg + ' 📎' + ChatAttach.files.length;
+    // Clear attachments
+    ChatAttach.files = [];
+    updateAttachedFilesPreview();
+  }
+
   // User bubble
-  appendBubble(msgContainer, escHtml(msg), 'right', '#F5A623', null);
+  appendBubble(msgContainer, escHtml(displayMsg), 'right', '#F5A623', null);
   msgContainer.lastChild.querySelector('span').style.color = '#080808';
   input.value = '';
 
@@ -4547,7 +4563,7 @@ async function sendChat(msg, msgContainer, input) {
     const resp = await fetch(API + '/assistant/chat/stream', {
       method: 'POST',
       headers: VaultAuth.headers(),
-      body: JSON.stringify({ message: msg, conversation_id: moltConvId, include_context: true })
+      body: JSON.stringify({ message: enhancedMsg, conversation_id: moltConvId, include_context: true })
     });
 
     if (resp.status === 401) {
@@ -4561,7 +4577,7 @@ async function sendChat(msg, msgContainer, input) {
       const resp2 = await fetch(API + '/assistant/chat', {
         method: 'POST',
         headers: VaultAuth.headers(),
-        body: JSON.stringify({ message: msg, conversation_id: moltConvId, include_context: true })
+        body: JSON.stringify({ message: enhancedMsg, conversation_id: moltConvId, include_context: true })
       });
       if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
       const data = await resp2.json();
@@ -7197,6 +7213,181 @@ function fmDeleteSelected() {
   .catch(e => {
     showToast('Delete failed', 'error');
   });
+}
+
+// ============================================
+// VAULT FILE PICKER FOR CHAT
+// ============================================
+
+const ChatAttach = {
+  files: [] // Array of {id, name, type, mimeType}
+};
+
+async function showVaultFilePicker() {
+  // Load files from vault
+  try {
+    const resp = await fetch(API + '/vault/items?limit=50', { headers: VaultAuth.headers() });
+    if (!resp.ok) throw new Error('Failed to load files');
+    const data = await resp.json();
+    const items = data.items || [];
+    
+    if (items.length === 0) {
+      showToast('No files in vault. Upload some files first!', 'info');
+      return;
+    }
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'vault-file-picker';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    
+    const getIcon = (type) => ({ photo: '🖼️', document: '📄', video: '🎥', audio: '🎵' }[type] || '📁');
+    
+    modal.innerHTML = `
+      <div style="background:#0a0a0a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:90%;max-width:500px;max-height:70vh;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:16px;font-weight:600;color:#fff">Attach from Vault</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.4)">Select files to include with your message</div>
+          </div>
+          <button onclick="this.closest('#vault-file-picker').remove()" style="background:none;border:none;color:#888;font-size:24px;cursor:pointer">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:8px">
+          ${items.map(item => {
+            const name = item.original_filename || item.storage_key?.split('/').pop() || 'File';
+            const size = item.file_size ? (item.file_size < 1024*1024 ? (item.file_size/1024).toFixed(1)+' KB' : (item.file_size/(1024*1024)).toFixed(1)+' MB') : '';
+            const icon = getIcon(item.item_type);
+            const isSelected = ChatAttach.files.some(f => f.id === item.id);
+            return `
+              <div class="vault-picker-item" data-id="${item.id}" data-name="${escHtml(name)}" data-type="${item.item_type}" data-mime="${item.mime_type || ''}"
+                   style="padding:12px 16px;border-radius:10px;margin-bottom:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:0.15s;background:${isSelected ? 'rgba(245,166,35,0.15)' : 'transparent'};border:1px solid ${isSelected ? 'rgba(245,166,35,0.3)' : 'transparent'}"
+                   onclick="toggleVaultFileSelection(this)"
+                   onmouseenter="if(!this.classList.contains('selected'))this.style.background='rgba(255,255,255,0.04)'"
+                   onmouseleave="if(!this.classList.contains('selected'))this.style.background='transparent'">
+                <span style="font-size:24px">${icon}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.3)">${size}</div>
+                </div>
+                <div class="check-mark" style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSelected ? '#F5A623' : 'rgba(255,255,255,0.2)'};display:flex;align-items:center;justify-content:center;background:${isSelected ? '#F5A623' : 'transparent'}">
+                  ${isSelected ? '<span style="color:#080808;font-size:12px">✓</span>' : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center">
+          <span id="picker-selected-count" style="font-size:13px;color:rgba(255,255,255,0.5)">${ChatAttach.files.length} selected</span>
+          <div style="display:flex;gap:10px">
+            <button onclick="this.closest('#vault-file-picker').remove()" style="padding:10px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#fff;font-size:13px;cursor:pointer">Cancel</button>
+            <button onclick="confirmVaultFileSelection()" style="padding:10px 20px;border-radius:8px;border:none;background:#F5A623;color:#080808;font-size:13px;font-weight:500;cursor:pointer">Attach</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+  } catch (e) {
+    console.error('File picker error:', e);
+    showToast('Failed to load files', 'error');
+  }
+}
+
+function toggleVaultFileSelection(el) {
+  const id = el.dataset.id;
+  const name = el.dataset.name;
+  const type = el.dataset.type;
+  const mime = el.dataset.mime;
+  
+  const idx = ChatAttach.files.findIndex(f => f.id === id);
+  if (idx >= 0) {
+    // Deselect
+    ChatAttach.files.splice(idx, 1);
+    el.style.background = 'transparent';
+    el.style.borderColor = 'transparent';
+    el.classList.remove('selected');
+    const check = el.querySelector('.check-mark');
+    check.style.borderColor = 'rgba(255,255,255,0.2)';
+    check.style.background = 'transparent';
+    check.innerHTML = '';
+  } else {
+    // Select
+    ChatAttach.files.push({ id, name, type, mimeType: mime });
+    el.style.background = 'rgba(245,166,35,0.15)';
+    el.style.borderColor = 'rgba(245,166,35,0.3)';
+    el.classList.add('selected');
+    const check = el.querySelector('.check-mark');
+    check.style.borderColor = '#F5A623';
+    check.style.background = '#F5A623';
+    check.innerHTML = '<span style="color:#080808;font-size:12px">✓</span>';
+  }
+  
+  document.getElementById('picker-selected-count').textContent = ChatAttach.files.length + ' selected';
+}
+
+function confirmVaultFileSelection() {
+  document.getElementById('vault-file-picker')?.remove();
+  updateAttachedFilesPreview();
+  
+  if (ChatAttach.files.length > 0) {
+    showToast(`${ChatAttach.files.length} file(s) attached`, 'success');
+  }
+}
+
+function updateAttachedFilesPreview() {
+  const container = document.getElementById('claw-attached-files');
+  if (!container) return;
+  
+  if (ChatAttach.files.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.style.display = 'flex';
+  const getIcon = (type) => ({ photo: '🖼️', document: '📄', video: '🎥', audio: '🎵' }[type] || '📁');
+  
+  container.innerHTML = ChatAttach.files.map(f => `
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:6px 10px;font-size:12px;color:#fff">
+      <span>${getIcon(f.type)}</span>
+      <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
+      <button onclick="removeAttachedFile('${f.id}')" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 0 0 4px">&times;</button>
+    </div>
+  `).join('');
+}
+
+function removeAttachedFile(id) {
+  ChatAttach.files = ChatAttach.files.filter(f => f.id !== id);
+  updateAttachedFilesPreview();
+}
+
+// Modify sendMoltbotMessage to include attached files
+const originalSendMoltbot = typeof sendMoltbotMessage === 'function' ? sendMoltbotMessage : null;
+
+function sendMoltbotMessageWithAttachments(userMessage) {
+  // Add file context to message
+  let enhancedMessage = userMessage;
+  
+  if (ChatAttach.files.length > 0) {
+    const fileContext = ChatAttach.files.map(f => 
+      `[Attached file: "${f.name}" (ID: ${f.id}, type: ${f.type})]`
+    ).join('\n');
+    
+    enhancedMessage = `${fileContext}\n\nUser message: ${userMessage}`;
+    
+    // Clear attachments after sending
+    ChatAttach.files = [];
+    updateAttachedFilesPreview();
+  }
+  
+  // Call original or existing function
+  if (originalSendMoltbot) {
+    return originalSendMoltbot(enhancedMessage);
+  }
+  
+  // Fallback: use existing moltbot send logic
+  return sendMoltbotChat(enhancedMessage);
 }
 
 </script>
