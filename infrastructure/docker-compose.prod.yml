@@ -92,6 +92,9 @@ services:
       O711I_INTERNAL_URL: http://host.docker.internal:10300
       O711I_CLIENT_ID: ${O711I_CLIENT_ID}
       O711I_CLIENT_SECRET: ${O711I_CLIENT_SECRET}
+      # 0711-AI Gateway
+      AI_GATEWAY_URL: http://host.docker.internal:10600
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
     volumes:
       - vaultclaw_prod_uploads:/app/uploads
     ports:

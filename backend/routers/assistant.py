@@ -1,6 +1,6 @@
 """
 Moltbot AI — The brain of 0711 Vault
-Powered by Claude Sonnet 4.6 via Anthropic API with TOOL CALLING
+Powered by Claude Sonnet via 0711-AI Gateway with TOOL CALLING
 Can create calendar events, search vault, analyze images, and more!
 
 OpenClaw H200V · Stuttgart · 2026
@@ -17,6 +17,7 @@ import asyncio
 import traceback
 import httpx
 import uuid
+import os
 
 from config import settings
 from database import get_db, get_neo4j, get_ollama, get_redis
@@ -25,45 +26,22 @@ from auth import get_current_user
 router = APIRouter()
 
 # ===========================================
-# ANTHROPIC CLIENT (lazy init)
+# 0711-AI GATEWAY CLIENT
 # ===========================================
 
-_anthropic_client = None
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
+AI_GATEWAY_URL = os.getenv("AI_GATEWAY_URL", "http://host.docker.internal:10600")
+AI_GATEWAY_API_KEY = os.getenv("AI_GATEWAY_API_KEY", "")
 
 
-def _get_anthropic():
-    """Lazy-init Anthropic client. Reads API key from file or env."""
-    global _anthropic_client
-    if _anthropic_client is not None:
-        return _anthropic_client
-
-    api_key = None
-
-    # Try file first (more secure in containers)
-    try:
-        with open("/app/.anthropic_key", "r") as f:
-            api_key = f.read().strip()
-    except FileNotFoundError:
-        pass
-
-    # Fallback to env
-    if not api_key:
-        import os
-        api_key = os.getenv("ANTHROPIC_API_KEY", "")
-
-    if not api_key:
-        print("[Moltbot] WARNING: No Anthropic API key found!")
-        return None
-
-    try:
-        import anthropic
-        _anthropic_client = anthropic.Anthropic(api_key=api_key)
-        print(f"[Moltbot] Anthropic client initialized (model: {CLAUDE_MODEL})")
-        return _anthropic_client
-    except Exception as e:
-        print(f"[Moltbot] Failed to init Anthropic client: {e}")
-        return None
+def _ai_gateway_headers(user_id: str = "moltbot", user_email: str = "moltbot@0711.io"):
+    """Headers for 0711-AI gateway internal auth."""
+    return {
+        "Content-Type": "application/json",
+        "X-API-Key": AI_GATEWAY_API_KEY,
+        "X-User-Id": user_id,
+        "X-User-Email": user_email,
+    }
 
 
 # ===========================================
@@ -540,39 +518,27 @@ async def tool_analyze_vault_file(params: dict, user_id: str, db) -> str:
         else:
             analysis_prompt = "Analyze this image in detail. Describe what you see, any text visible, people, objects, location, mood, and anything interesting or notable."
         
-        # Call Claude with vision
-        client = _get_anthropic()
-        if not client:
-            return "❌ AI service unavailable. Please try again later."
-        
+        # Call 0711-AI gateway for vision analysis
         try:
-            response = client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=1500,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": analysis_prompt
-                        }
-                    ]
-                }]
-            )
-            
-            analysis = response.content[0].text
-            filename = item.storage_key.split('/')[-1] if item.storage_key else "file"
-            
-            return f"🔍 **Analysis of {filename}:**\n\n{analysis}"
-            
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    f"{AI_GATEWAY_URL}/ai/vision",
+                    json={
+                        "image_base64": image_data,
+                        "media_type": media_type,
+                        "prompt": analysis_prompt,
+                        "model": CLAUDE_MODEL,
+                        "max_tokens": 1500,
+                    },
+                    headers=_ai_gateway_headers(user_id),
+                )
+                if resp.status_code != 200:
+                    return f"❌ AI vision service error: {resp.text}"
+
+                analysis = resp.json().get("analysis", "")
+                filename = item.storage_key.split('/')[-1] if item.storage_key else "file"
+                return f"🔍 **Analysis of {filename}:**\n\n{analysis}"
+
         except Exception as e:
             print(f"[Moltbot] Vision API error: {e}")
             traceback.print_exc()
@@ -744,10 +710,7 @@ class MemoryResponse(BaseModel):
 # ===========================================
 
 async def _chat_claude_with_tools(messages: list, user_id: str, db):
-    """Call Claude with tool definitions and execute any tool calls."""
-    client = _get_anthropic()
-    if not client:
-        return None, []
+    """Call Claude via 0711-AI gateway with tool definitions and execute any tool calls."""
 
     # Separate system prompt from messages
     system_text = ""
@@ -760,68 +723,79 @@ async def _chat_claude_with_tools(messages: list, user_id: str, db):
 
     tool_results = []
     max_iterations = 5
-    
-    for iteration in range(max_iterations):
-        # Call Claude with tools
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=2048,
-            system=system_text,
-            messages=chat_messages,
-            tools=MOLTBOT_TOOLS
-        )
-        
-        # Check if Claude wants to use tools
-        if response.stop_reason == "tool_use":
-            # Process tool calls
-            assistant_content = response.content
-            tool_use_blocks = [block for block in assistant_content if block.type == "tool_use"]
-            
-            # Add assistant message with tool use
-            chat_messages.append({
-                "role": "assistant",
-                "content": assistant_content
-            })
-            
-            # Execute each tool and collect results
-            tool_results_content = []
-            for tool_block in tool_use_blocks:
-                print(f"[Moltbot] Executing tool: {tool_block.name}")
-                result = await execute_tool(
-                    tool_block.name,
-                    tool_block.input,
-                    user_id,
-                    db
-                )
-                tool_results.append({
-                    "tool": tool_block.name,
-                    "input": tool_block.input,
-                    "result": result
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        for iteration in range(max_iterations):
+            # Call 0711-AI gateway /ai/messages passthrough
+            body = {
+                "model": CLAUDE_MODEL,
+                "max_tokens": 2048,
+                "messages": chat_messages,
+                "tools": MOLTBOT_TOOLS,
+            }
+            if system_text:
+                body["system"] = system_text
+
+            resp = await client.post(
+                f"{AI_GATEWAY_URL}/ai/messages",
+                json=body,
+                headers=_ai_gateway_headers(user_id),
+            )
+
+            if resp.status_code != 200:
+                print(f"[Moltbot] Gateway error {resp.status_code}: {resp.text}")
+                return None, []
+
+            response = resp.json()
+
+            # Check if Claude wants to use tools
+            if response.get("stop_reason") == "tool_use":
+                content_blocks = response.get("content", [])
+                tool_use_blocks = [b for b in content_blocks if b.get("type") == "tool_use"]
+
+                # Add assistant message with tool use content
+                chat_messages.append({
+                    "role": "assistant",
+                    "content": content_blocks,
                 })
-                tool_results_content.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_block.id,
-                    "content": result
+
+                # Execute each tool and collect results
+                tool_results_content = []
+                for tool_block in tool_use_blocks:
+                    print(f"[Moltbot] Executing tool: {tool_block['name']}")
+                    result = await execute_tool(
+                        tool_block["name"],
+                        tool_block["input"],
+                        user_id,
+                        db,
+                    )
+                    tool_results.append({
+                        "tool": tool_block["name"],
+                        "input": tool_block["input"],
+                        "result": result,
+                    })
+                    tool_results_content.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_block["id"],
+                        "content": result,
+                    })
+
+                chat_messages.append({
+                    "role": "user",
+                    "content": tool_results_content,
                 })
-            
-            # Add tool results to messages
-            chat_messages.append({
-                "role": "user",
-                "content": tool_results_content
-            })
-            
-            # Continue loop to get Claude's response after tool execution
-            continue
-        
-        else:
-            # Claude is done, extract final text response
-            text_response = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    text_response += block.text
-            
-            return text_response, tool_results
-    
+
+                continue
+
+            else:
+                # Claude is done — extract text
+                text_response = ""
+                for block in response.get("content", []):
+                    if block.get("type") == "text":
+                        text_response += block.get("text", "")
+
+                return text_response, tool_results
+
     return "Ich habe zu viele Tool-Aufrufe gemacht. Bitte versuche es nochmal mit einer einfacheren Anfrage.", tool_results
 
 
@@ -934,12 +908,8 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     ]
 
     async def generate_claude():
-        """Stream from Claude via SSE."""
+        """Stream from 0711-AI gateway via SSE."""
         try:
-            client = _get_anthropic()
-            if not client:
-                raise Exception("No Anthropic client")
-
             system_text = ""
             chat_messages = []
             for msg in messages:
@@ -948,16 +918,31 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 else:
                     chat_messages.append({"role": msg["role"], "content": msg["content"]})
 
-            with client.messages.stream(
-                model=CLAUDE_MODEL,
-                max_tokens=2048,
-                system=system_text,
-                messages=chat_messages,
-            ) as stream:
-                for text_chunk in stream.text_stream:
-                    yield f"data: {json.dumps({'content': text_chunk})}\n\n"
+            body = {
+                "model": CLAUDE_MODEL,
+                "max_tokens": 2048,
+                "messages": chat_messages,
+                "stream": True,
+            }
+            if system_text:
+                body["system"] = system_text
 
-            yield f"data: {json.dumps({'done': True})}\n\n"
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream(
+                    "POST",
+                    f"{AI_GATEWAY_URL}/ai/messages",
+                    json=body,
+                    headers=_ai_gateway_headers(user_id),
+                ) as resp:
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            data = json.loads(line[6:])
+                            if data.get("text"):
+                                yield f"data: {json.dumps({'content': data['text']})}\n\n"
+                            elif data.get("type") == "message_stop":
+                                yield f"data: {json.dumps({'done': True})}\n\n"
+                            elif data.get("type") == "error":
+                                raise Exception(data.get("error", "Unknown"))
 
         except Exception as e:
             print(f"[Moltbot] Stream error: {e}")
