@@ -214,3 +214,52 @@ done'
 ---
 
 *Good luck, Bombas. The foundation is deployed and working. Login + Moltbot chat are live for all users. The next step is wiring the frontend panels to real backend data.*
+
+## Feb 24, 2026 - FV2 File Manager Implementation
+
+### What was done
+Implemented the complete FV2 (File Manager v2) design from VaultClawb.html reference:
+
+1. **New CSS** (~600 lines):
+   - `.fv2-topbar` - Breadcrumbs + action buttons
+   - `.fv2-collections` - Horizontal scrollable smart collection cards
+   - `.fv2-table` / `.fv2-file-row` - List view with proper columns
+   - `.fv2-grid` / `.fv2-grid-item` - Grid view with thumbnails
+   - `.fv2-storage-footer` - Bottom storage bar
+   - `.fv2-context` - Right-click context menu
+   - `.fv2-drop-zone` - Drag & drop overlay
+   - Light theme support for all fv2 classes
+
+2. **New HTML structure**:
+   - Top bar with search, view toggle, new folder, upload buttons
+   - Smart Collections: Recent, Documents, Images, Starred
+   - List view (default) with Name, Type, Size, Modified columns
+   - Grid view with thumbnail support
+   - Empty state with upload CTA
+   - Storage footer showing "X MB of 5 GB · Encrypted"
+
+3. **New JavaScript** (~400 lines):
+   - `FV2` state object
+   - `initFv2FileManager()` - Drag/drop, context menu setup
+   - `fv2LoadFiles()` - API calls with fallback
+   - `fv2RenderFiles()` / `fv2RenderListItem()` / `fv2RenderGridItem()`
+   - `fv2GetFileName()` - Proper filename extraction (original_filename > storage_key)
+   - `fv2GetFileIcon()` - Type-based color coding
+   - `fv2Upload()` / `fv2UploadFiles()`
+   - `fv2DownloadFile()` / `fv2DeleteFile()` / `fv2RenameFile()`
+   - `fv2ShowContext()` / `fv2ContextAction()`
+   - View toggle, search, collection counts
+
+### Key fixes
+- Files now show original filenames instead of UUIDs
+- Storage shows actual usage in footer
+- Collections show item counts from file stats
+
+### What's still TODO
+- Smart Collections filtering (currently shows toast)
+- Folder creation (API endpoint needed)
+- File rename (needs PATCH /files/{id} endpoint)
+- AI Insight bar (hidden by default, needs AI integration)
+
+### Commit
+`9f9be4d` - "Add FV2 File Manager - Dropbox-level design"
