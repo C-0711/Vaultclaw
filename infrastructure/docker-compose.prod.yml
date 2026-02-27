@@ -76,7 +76,7 @@ services:
       dockerfile: Dockerfile
     container_name: vaultclaw-prod-api
     environment:
-      DATABASE_URL: postgresql+asyncpg://vault:vaultclaw_prod_2026@postgres:5432/vaultclaw
+      DATABASE_URL: postgresql://vault:vaultclaw_prod_2026@postgres:5432/vaultclaw
       REDIS_URL: redis://redis:6379/0
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
