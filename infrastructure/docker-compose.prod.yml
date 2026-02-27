@@ -87,6 +87,11 @@ services:
       EMBEDDING_MODEL: bge-m3:latest
       VISION_MODEL: llama4:latest
       ENVIRONMENT: production
+      # 0711-I SSO
+      O711I_URL: https://id.0711.io
+      O711I_INTERNAL_URL: http://host.docker.internal:10300
+      O711I_CLIENT_ID: ${O711I_CLIENT_ID}
+      O711I_CLIENT_SECRET: ${O711I_CLIENT_SECRET}
     volumes:
       - vaultclaw_prod_uploads:/app/uploads
     ports:

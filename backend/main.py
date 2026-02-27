@@ -67,6 +67,12 @@ VISION_MODEL = os.getenv("VISION_MODEL", "llama4:latest")
 # MinIO removed - Albert Storage uses PostgreSQL + ChaCha20-Poly1305
 JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
 
+# 0711-I SSO (OAuth2)
+O711I_URL = os.getenv("O711I_URL", "https://id.0711.io")
+O711I_INTERNAL_URL = os.getenv("O711I_INTERNAL_URL", O711I_URL)
+O711I_CLIENT_ID = os.getenv("O711I_CLIENT_ID", "")
+O711I_CLIENT_SECRET = os.getenv("O711I_CLIENT_SECRET", "")
+
 # Global connections
 db_pool = None
 redis_client = None
@@ -371,6 +377,110 @@ async def logout(user_id: str = Depends(get_current_user), authorization: str = 
         if redis_client:
             await redis_client.delete(f"token:{token}")
     return {"message": "Logged out"}
+
+
+# ===========================================
+# SSO (0711-I OAuth2)
+# ===========================================
+
+@app.get("/auth/sso/login")
+async def sso_login(request_obj=None):
+    """Redirect to 0711-I for SSO login."""
+    from starlette.requests import Request
+    from starlette.responses import RedirectResponse
+    import urllib.parse
+
+    if not O711I_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="SSO not configured")
+
+    # Build redirect_uri from request origin
+    redirect_uri = "https://vc.0711.io/auth/callback"
+
+    params = urllib.parse.urlencode({
+        "client_id": O711I_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid profile email",
+    })
+    return RedirectResponse(url=f"{O711I_URL}/oauth/authorize?{params}")
+
+
+@app.get("/auth/callback")
+async def sso_callback(code: str = Query(None), error: str = Query(None)):
+    """Handle OAuth2 callback from 0711-I."""
+    from starlette.responses import RedirectResponse
+
+    if error or not code:
+        return RedirectResponse(url="/?error=sso_denied")
+
+    if not O711I_CLIENT_ID:
+        return RedirectResponse(url="/?error=sso_not_configured")
+
+    redirect_uri = "https://vc.0711.io/auth/callback"
+
+    # Exchange authorization code for tokens
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            token_resp = await client.post(
+                f"{O711I_INTERNAL_URL}/oauth/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": O711I_CLIENT_ID,
+                    "client_secret": O711I_CLIENT_SECRET,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if token_resp.status_code != 200:
+                return RedirectResponse(url="/?error=token_exchange_failed")
+
+            tokens = token_resp.json()
+            access_token = tokens.get("access_token")
+
+            # Get user info from 0711-I
+            userinfo_resp = await client.get(
+                f"{O711I_INTERNAL_URL}/oauth/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if userinfo_resp.status_code != 200:
+                return RedirectResponse(url="/?error=userinfo_failed")
+
+            userinfo = userinfo_resp.json()
+    except Exception:
+        return RedirectResponse(url="/?error=sso_connection_failed")
+
+    email = userinfo.get("email")
+    sso_sub = userinfo.get("sub")
+
+    if not email:
+        return RedirectResponse(url="/?error=no_email")
+
+    if not db_pool:
+        return RedirectResponse(url="/?error=db_unavailable")
+
+    # Find or create user in Vaultclaw
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT id FROM users WHERE email = $1", email)
+        if not user:
+            # Auto-provision SSO user (no zero-knowledge keys — SSO-managed)
+            user_id = await conn.fetchval(
+                """INSERT INTO users (email, auth_hash, salt, encrypted_master_key)
+                   VALUES ($1, $2, '', '')
+                   RETURNING id""",
+                email, f"sso:{sso_sub}",
+            )
+        else:
+            user_id = user["id"]
+
+        await conn.execute("UPDATE users SET last_login = NOW() WHERE id = $1", user_id)
+
+    # Generate Vaultclaw session token (same mechanism as /auth/login)
+    vc_token = secrets.token_urlsafe(32)
+    if redis_client:
+        await redis_client.setex(f"token:{vc_token}", 86400, str(user_id))
+
+    return RedirectResponse(url=f"/?token={vc_token}")
 
 
 # ===========================================
