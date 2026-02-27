@@ -1,0 +1,155 @@
+# Vaultclaw — H200V Production Stack
+# Usage: docker compose -f infrastructure/docker-compose.prod.yml up --build -d
+# Frontend: http://localhost:10208 | API: http://localhost:10206 | Neo4j: http://localhost:10202
+#
+# Port range 10200-10209 — no conflicts with existing tenant containers
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: vaultclaw-prod-postgres
+    environment:
+      POSTGRES_DB: vaultclaw
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: vaultclaw_prod_2026
+    volumes:
+      - vaultclaw_prod_postgres:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "10200:5432"
+    networks:
+      vaultclaw-prod:
+        aliases:
+          - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d vaultclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: vaultclaw-prod-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - vaultclaw_prod_redis:/data
+    ports:
+      - "10201:6379"
+    networks:
+      vaultclaw-prod:
+        aliases:
+          - redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5
+    container_name: vaultclaw-prod-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/vaultclaw0711prod
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - vaultclaw_prod_neo4j:/data
+    ports:
+      - "10202:7474"
+      - "10203:7687"
+    networks:
+      vaultclaw-prod:
+        aliases:
+          - neo4j
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-prod-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vault:vaultclaw_prod_2026@postgres:5432/vaultclaw
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: vaultclaw0711prod
+      JWT_SECRET: ${JWT_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OLLAMA_HOST: http://host.docker.internal:11434
+      EMBEDDING_MODEL: bge-m3:latest
+      VISION_MODEL: llama4:latest
+      ENVIRONMENT: production
+    volumes:
+      - vaultclaw_prod_uploads:/app/uploads
+    ports:
+      - "10206:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      vaultclaw-prod:
+        aliases:
+          - api
+          - vault-api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-prod-worker
+    command: python worker.py
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vault:vaultclaw_prod_2026@postgres:5432/vaultclaw
+      REDIS_URL: redis://redis:6379/0
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: vaultclaw0711prod
+      OLLAMA_HOST: http://host.docker.internal:11434
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ENVIRONMENT: production
+    volumes:
+      - vaultclaw_prod_uploads:/app/uploads
+    depends_on:
+      - api
+    networks:
+      - vaultclaw-prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: vaultclaw-prod-frontend
+    ports:
+      - "10208:80"
+    depends_on:
+      - api
+    networks:
+      - vaultclaw-prod
+    restart: unless-stopped
+
+networks:
+  vaultclaw-prod:
+    name: vaultclaw-prod
+    driver: bridge
+
+volumes:
+  vaultclaw_prod_postgres:
+  vaultclaw_prod_redis:
+  vaultclaw_prod_neo4j:
+  vaultclaw_prod_uploads:
